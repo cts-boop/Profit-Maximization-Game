@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>學生決策端 — 奶茶大亨</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .stat-box {
+      background: var(--bg-input);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      text-align: center;
+    }
+    .stat-box .label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-box .value { font-size: 1.6rem; font-weight: 900; color: var(--gold); margin-top: 0.25rem; }
+    .stat-box .value.green { color: var(--green); }
+    .stat-box .value.red   { color: var(--red); }
+
+    .decision-locked { opacity: 0.45; pointer-events: none; }
+
+    .phase-waiting  { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; }
+    .phase-waiting .big-icon { font-size: 5rem; margin-bottom: 1rem; }
+
+    .report-row { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+    .report-row:last-child { border-bottom: none; }
+    .report-row .r-label { color: var(--text-dim); }
+    .report-row .r-val   { font-weight: 700; font-size: 1.05rem; }
+
+    .demand-tier-row { cursor: default; }
+    .demand-tier-row td { padding: 0.4rem 0.6rem; }
+    .demand-tier-highlight { background: rgba(245,197,24,0.15); font-weight: 700; }
+
+    /* ── Compact Item Shop ── */
+    .item-chips { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+    .item-chip {
+      background: var(--bg-input);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 0.8rem;
+      display: flex; align-items: center; gap: 0.5rem;
+      cursor: pointer; transition: border-color 0.2s, background 0.2s;
+      flex: 1; min-width: 140px;
+    }
+    .item-chip:hover:not(.owned):not(:disabled) { border-color: var(--gold); background: rgba(245,197,24,0.07); }
+    .item-chip.owned { border-color: var(--green); background: rgba(78,204,163,0.08); opacity: 0.8; pointer-events: none; }
+    .item-chip.cant-afford { opacity: 0.4; pointer-events: none; }
+    .item-chip-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .item-chip-body { display: flex; flex-direction: column; flex: 1; }
+    .item-chip-name { font-size: 0.82rem; font-weight: 700; line-height: 1.2; }
+    .item-chip-cost { font-size: 0.78rem; color: var(--gold); font-weight: 600; }
+    .item-chip-desc { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.1rem; line-height: 1.3; }
+    .item-chip-owned-label { font-size: 0.75rem; color: var(--green); font-weight: 700; }
+
+    /* ── Demand Hint (Round 1) ── */
+    .demand-hint-card {
+      background: rgba(83,168,245,0.07);
+      border: 1.5px dashed rgba(83,168,245,0.4);
+      border-radius: var(--radius-sm);
+      padding: 0.7rem 1rem;
+      margin-bottom: 0.8rem;
+      font-size: 0.82rem;
+    }
+    .demand-hint-card .dh-title { font-weight: 700; color: var(--blue); margin-bottom: 0.3rem; }
+    .demand-hint-tiers { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.3rem; }
+    .dh-tier {
+      background: var(--bg-input);
+      border-radius: 6px;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+    .dh-tier span { color: var(--gold); font-weight: 700; }
+
+    /* ── 2-col layout for decision section ── */
+    .decision-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 600px) { .decision-cols { grid-template-columns: 1fr; } .item-chips { flex-direction: column; } }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     PHASE 0 — Join Screen
+══════════════════════════════════════ -->
+<div id="phaseJoin" class="landing-page">
+  <div class="landing-logo">🧋</div>
+  <h1 class="landing-title" style="font-size:2rem;">加入課堂</h1>
+  <p class="text-dim mb-3">輸入教師提供的 4 位數課堂代碼</p>
+
+  <div style="width:320px;" class="flex flex-col gap-2">
+    <input type="text" id="inputCode" maxlength="4" placeholder="課堂代碼 (e.g. 3847)"
+           style="text-align:center; font-size:2rem; font-weight:900; letter-spacing:0.3em;">
+
+    <button id="btnValidateCode" class="btn btn-outline btn-lg" onclick="validateCode()">🔍 查詢課堂</button>
+
+    <div id="groupSelectArea" class="hidden flex flex-col gap-2">
+      <p style="font-weight:600; font-size:0.9rem; margin-bottom:-0.3rem;">選擇組別</p>
+      <div id="groupSlots" style="display:flex; gap:0.45rem; flex-wrap:wrap;"></div>
+      <input type="hidden" id="selectTeam" value="">
+
+      <input type="text" id="inputNickname" maxlength="10" placeholder="自訂隊名（選填，例：霸總）"
+             style="font-size:1rem; text-align:center;">
+
+      <button class="btn btn-primary btn-lg" onclick="joinSession()">加入遊戲 →</button>
+    </div>
+    <p id="joinError" class="text-red text-center hidden"></p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PHASE 1 — Waiting for round to start
+══════════════════════════════════════ -->
+<div id="phaseWaiting" class="hidden">
+  <!-- Header -->
+  <div class="top-header">
+    <div class="game-title">🧋 <span id="hTeamName">—</span></div>
+    <div class="header-info">
+      <span class="text-dim">回合</span>
+      <span id="hRound" class="text-gold" style="font-weight:900;">—</span>
+      <span class="text-dim">資金</span>
+      <span id="hCapital" class="text-gold" style="font-weight:900;">—</span>
+    </div>
+  </div>
+
+  <div class="phase-waiting">
+    <div class="big-icon" id="waitingIcon">⏳</div>
+    <h2 id="waitingMsg" style="font-size:1.5rem; font-weight:700;">等待教師開始回合…</h2>
+    <p class="text-dim mt-1" id="waitingSubMsg">請準備好紙筆，自行計算邊際成本表</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PHASE 2 — Decision Panel (in_progress)
+══════════════════════════════════════ -->
+<div id="phaseDecision" class="hidden">
+  <!-- Header -->
+  <div class="top-header">
+    <div class="game-title">🧋 <span id="dTeamName">—</span></div>
+    <div class="header-info">
+      <span class="text-dim">回合</span>
+      <span id="dRound" class="text-gold" style="font-weight:900;">—</span>
+      <div id="dTimer" class="timer-display" style="font-size:1.4rem; margin:0;">2:00</div>
+      <span class="text-dim">資金</span>
+      <span id="dCapital" class="text-gold" style="font-weight:900;">—</span>
+    </div>
+  </div>
+
+  <div class="container" style="max-width:680px; padding-top:1rem;">
+
+    <!-- Active Event Banners -->
+    <div id="eventBanners"></div>
+
+    <!-- Item Shop (compact chips) -->
+    <div class="card mb-2" id="itemShopCard" style="padding:0.9rem 1rem;">
+      <div class="card-header" style="margin-bottom:0.7rem;">🛒 道具商店 <span class="text-dim" style="font-size:0.78rem; font-weight:400;">（效果僅限本回合，資金即時扣除）</span></div>
+      <div class="item-chips" id="itemShopGrid"></div>
+    </div>
+
+    <!-- Revealed Demand Table (if I01 purchased) -->
+    <div id="demandRevealCard" class="card mb-2 hidden demand-table-reveal">
+      <div class="card-header">🔍 精準市場調查 — 需求階梯表</div>
+      <table class="data-table">
+        <thead><tr><th>全班總供應量</th><th>預測市價</th><th>市場狀態</th></tr></thead>
+        <tbody id="demandRevealBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Decision Form -->
+    <div class="card" id="decisionFormCard">
+      <div class="card-header">👨‍🏭 生產部經理小朱 請大老闆下指示</div>
+
+      <!-- Manager speech bubble -->
+      <div style="display:flex; align-items:flex-start; gap:0.6rem; margin-bottom:0.8rem; margin-top:0.2rem;">
+        <div style="font-size:2rem; flex-shrink:0;">👷</div>
+        <div style="position:relative; background:rgba(255,255,255,0.07); border:1px solid var(--border); border-radius:0 12px 12px 12px; padding:0.6rem 0.9rem; font-size:0.85rem; color:var(--text); line-height:1.6;">
+          以下是生產方面的數據，請您自行計算銷售方面的數據，並決定本回合的生產量 (Q)。
+          <div style="position:absolute; top:0; left:-8px; width:0; height:0; border-top:8px solid transparent; border-right:8px solid var(--border);"></div>
+        </div>
+      </div>
+
+      <!-- Round 1 demand hint -->
+      <div id="demandHintBlock" class="demand-hint-card hidden">
+        <div class="dh-title">📊 市場參考（第一回合提示）</div>
+        <p style="color:var(--text-dim); font-size:0.8rem;">根據本課堂組數的需求設定，全班市價大致如下：</p>
+        <div class="demand-hint-tiers"></div>
+      </div>
+
+      <div class="decision-cols">
+        <!-- LEFT: Slider + TVC -->
+        <div>
+          <label style="font-weight:600; display:block; margin-bottom:0.4rem; font-size:0.9rem;">
+            決定生產量 (Quantity, Q)
+          </label>
+          <div class="slider-container mb-2">
+            <span class="text-dim">0</span>
+            <input type="range" id="qSlider" min="0" max="8" value="0" oninput="onQChange(this.value)">
+            <span class="text-dim">8</span>
+            <div class="slider-value" id="qDisplay">0</div>
+          </div>
+
+          <!-- ⚠️ NO MC, NO MR, NO EXPECTED PROFIT -->
+          <div class="stat-box">
+            <div class="label">總可變成本 TVC</div>
+            <div class="value" id="statTVC">$0</div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Cost reference -->
+        <div>
+          <p style="font-weight:600; font-size:0.9rem; margin-bottom:0.4rem;">💰 成本參考</p>
+          <div class="stat-box mb-2">
+            <div class="label">廠房租金 FC</div>
+            <div class="value" id="statFC">$20</div>
+          </div>
+          <!-- Total Cost preview -->
+          <div class="stat-box" style="background:rgba(233,69,96,0.1); border:1px solid rgba(233,69,96,0.3);">
+            <div class="label">總成本 TC = FC + TVC</div>
+            <div class="value" id="statTC" style="color:var(--accent);">$20</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:rgba(245,197,24,0.07); border:1px solid rgba(245,197,24,0.25); border-radius:var(--radius-sm); padding:0.7rem 1rem; margin-bottom:0.8rem; font-size:0.82rem;">
+        <p style="font-weight:700; color:var(--gold); margin-bottom:0.3rem;">📋 生產部經理提案</p>
+        <p style="color:var(--text-dim); line-height:1.6;">
+          除了生產方面的數據，請自行計算銷售收益，並決定最優生產量。<br>
+          由於每次 ΔQ = 1，<strong style="color:var(--text);">MC = ΔTC</strong>（逐行相減）。
+          對比市場價格，找出令利潤最大（MC ≤ 市價）的 Q 後提交。
+        </p>
+      </div>
+
+      <!-- Submit Button -->
+      <button id="btnSubmit" class="btn btn-primary btn-lg btn-block" onclick="submitDecision()">
+        ✅ 確認提交
+      </button>
+      <p id="submittedMsg" class="text-green text-center mt-2 hidden" style="font-weight:700;">
+        ✅ 已提交！等待回合結算…
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PHASE 3 — Post-Round Report Modal
+══════════════════════════════════════ -->
+<div id="reportModal" class="modal-overlay hidden">
+  <div class="modal-content animate-slide-up" style="max-width:420px;">
+    <div style="font-size:2.5rem; margin-bottom:0.5rem;">📋</div>
+    <h2 style="margin-bottom:1rem;">回合 <span id="rptRound">—</span> 結算報告</h2>
+
+    <div class="mb-2">
+      <div class="report-row">
+        <span class="r-label">最終市價 (Market Price)</span>
+        <span class="r-val text-gold" id="rptPrice">—</span>
+      </div>
+      <div class="report-row">
+        <span class="r-label">總產量 (TP)</span>
+        <span class="r-val" id="rptTP">—</span>
+      </div>
+      <div class="report-row">
+        <span class="r-label">總收入 TR = TP × Price</span>
+        <span class="r-val text-blue" id="rptTR">—</span>
+      </div>
+      <div class="report-row">
+        <span class="r-label">總成本 TC = FC + TVC</span>
+        <span class="r-val" id="rptTC">—</span>
+      </div>
+      <div class="report-row" style="border-top: 2px solid var(--accent); padding-top:0.8rem;">
+        <span class="r-label" style="font-weight:700;">淨利潤 (Net Profit)</span>
+        <span class="r-val" id="rptProfit" style="font-size:1.4rem;">—</span>
+      </div>
+      <div class="report-row">
+        <span class="r-label">更新後累積資金</span>
+        <span class="r-val text-gold" id="rptNewCapital">—</span>
+      </div>
+    </div>
+
+    <!-- Shutdown Warning -->
+    <div id="shutdownWarning" class="shutdown-warning hidden">
+      <div class="skull">💀</div>
+      <p style="font-weight:700; color:var(--red);">跌穿停產點！</p>
+      <p style="font-size:0.85rem; color:var(--text-dim); margin-top:0.3rem;">
+        你的總收入 (TR) 低於總可變成本 (TVC)！<br>
+        在此情況下，停止生產 (Q=0) 反而損失更少。
+      </p>
+    </div>
+
+    <button class="btn btn-primary btn-lg btn-block mt-3" onclick="closeReport()">
+      繼續 →
+    </button>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/game-engine.js"></script>
+
+<script>
+// ── State ──
+let sessionId        = null;
+let teamId           = null;
+let teamData         = null;
+let currentRound     = 1;
+let numberOfGroups   = 5;
+let activeEvents     = [];
+let activeItems      = [];  // items purchased this round
+let timerInterval    = null;
+let submitted        = false;
+let roundPhaseStarted = false;  // prevents timer reset on each Firestore update
+let unsubSession     = null;
+let unsubTeam        = null;
+let sessionTeams     = [];  // dynamic teams for this session
+
+// ── Group Slot Buttons (dynamic based on session N) ──
+function renderGroupSlots(teams) {
+  const container = document.getElementById('groupSlots');
+  sessionTeams = teams;
+  container.innerHTML = teams.map(t =>
+    `<button type="button" class="btn btn-outline btn-sm" id="slot_${t.id}"
+       style="flex:1; min-width:50px; font-size:0.9rem; padding:0.5rem 0;"
+       onclick="pickSlot('${t.id}')">
+       ${t.emoji} ${t.name.replace('Group ','')}</button>`
+  ).join('');
+}
+
+function pickSlot(id) {
+  document.getElementById('selectTeam').value = id;
+  for (const t of sessionTeams) {
+    const btn = document.getElementById('slot_' + t.id);
+    if (t.id === id) { btn.style.borderColor = 'var(--gold)'; btn.style.background = 'rgba(245,197,24,0.12)'; btn.style.color = 'var(--gold)'; }
+    else { btn.style.borderColor = ''; btn.style.background = ''; btn.style.color = ''; }
+  }
+  document.getElementById('joinError').classList.add('hidden');
+}
+
+// Validate code and load group slots dynamically
+async function validateCode() {
+  const code = document.getElementById('inputCode').value.trim();
+  if (!code || code.length !== 4) { return showJoinError('請輸入 4 位數課堂代碼'); }
+  const sessionDoc = await db.collection('game_sessions').doc(code).get();
+  if (!sessionDoc.exists) { return showJoinError('找不到該課堂代碼，請確認後重試'); }
+  const session = sessionDoc.data();
+  numberOfGroups = session.number_of_groups || 5;
+  const teams = GameEngine.getTeams(numberOfGroups);
+  renderGroupSlots(teams);
+  // Show the group selection area
+  document.getElementById('groupSelectArea').classList.remove('hidden');
+  document.getElementById('btnValidateCode').classList.add('hidden');
+  document.getElementById('inputCode').readOnly = true;
+  // Update demand hint
+  updateDemandHint();
+}
+
+function updateDemandHint() {
+  const hintBlock = document.getElementById('demandHintBlock');
+  if (!hintBlock) return;
+  const table = GameEngine.getDemandTable(numberOfGroups);
+  hintBlock.querySelector('.demand-hint-tiers').innerHTML = table.map(t =>
+    `<div class="dh-tier">全班 ${t.range}件 → <span>$${t.price}</span></div>`
+  ).join('');
+  hintBlock.querySelector('p').textContent = `根據 ${numberOfGroups} 組的需求設定，全班市價大致如下：`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // group slots rendered after code validation
+});
+
+// ── Join Session ──
+async function joinSession() {
+  const code = document.getElementById('inputCode').value.trim();
+  const team = document.getElementById('selectTeam').value;
+  const nickname = document.getElementById('inputNickname').value.trim();
+
+  if (!code || code.length !== 4) { return showJoinError('請輸入 4 位數課堂代碼'); }
+  if (!team) { return showJoinError('請先選擇組別'); }
+
+  sessionId = code;
+  teamId    = team;
+
+  // Build display name: "Group A" or "Group A: 霸總"
+  const base = sessionTeams.find(t => t.id === team);
+  const displayName = nickname ? `${base.name}: ${nickname}` : base.name;
+
+  // Mark team as connected + update custom name
+  await db.collection('game_sessions').doc(sessionId)
+    .collection('teams').doc(teamId).update({ connected: true, name: displayName });
+
+  // Load team data
+  const teamDoc = await db.collection('game_sessions').doc(sessionId)
+    .collection('teams').doc(teamId).get();
+  teamData = teamDoc.data();
+
+  showPhase('waiting');
+  subscribeSession();
+  subscribeTeam();
+}
+
+function showJoinError(msg) {
+  const el = document.getElementById('joinError');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+// ── Subscribe to Session (real-time) ──
+function subscribeSession() {
+  if (unsubSession) unsubSession();
+  unsubSession = db.collection('game_sessions').doc(sessionId)
+    .onSnapshot(snap => {
+      if (!snap.exists) return;
+      const session = snap.data();
+      currentRound  = session.current_round || 1;
+      activeEvents  = (session.active_events || []);
+
+      // Update header in all phases
+      document.querySelectorAll('[id^="hRound"], [id^="dRound"]')
+        .forEach(el => { el.textContent = currentRound; });
+
+      // Update event banners
+      renderEventBanners();
+
+      // Update FC/TVC displays if in decision phase
+      updateDecisionStats();
+
+      switch (session.status) {
+        case 'waiting':
+          submitted = false;
+          activeItems = [];
+          roundPhaseStarted = false;
+          showPhase('waiting');
+          setWaitingMsg('⏳', '等待教師開始回合…', '請準備好紙筆，自行計算邊際成本表');
+          break;
+
+        case 'in_progress':
+          if (submitted) {
+            showPhase('waiting');
+            setWaitingMsg('✅', '決策已提交！', '等待其他小組提交，回合即將結算…');
+          } else if (!roundPhaseStarted) {
+            // First time entering this round's decision phase — start timer once
+            roundPhaseStarted = true;
+            showPhase('decision');
+            startClientTimer(session.timer_end);
+          } else {
+            // Subsequent Firestore updates (e.g. event cards fired) — just refresh data, don't restart timer
+            renderEventBanners();
+            updateDecisionStats();
+          }
+          break;
+
+        case 'clearing':
+          clearInterval(timerInterval);
+          if (!submitted) {
+            // Auto-submit with current slider value
+            submitDecision(true);
+          } else {
+            showPhase('waiting');
+            setWaitingMsg('⏳', '正在結算…', '教師正在公佈結果');
+          }
+          break;
+
+        case 'results':
+          loadAndShowReport();
+          break;
+      }
+    });
+}
+
+// ── Subscribe to Team ──
+function subscribeTeam() {
+  if (unsubTeam) unsubTeam();
+  unsubTeam = db.collection('game_sessions').doc(sessionId)
+    .collection('teams').doc(teamId)
+    .onSnapshot(snap => {
+      if (!snap.exists) return;
+      teamData = snap.data();
+      const cap = (teamData.total_capital || 50000).toLocaleString();
+      document.getElementById('hCapital').textContent = '$' + cap;
+      document.getElementById('dCapital').textContent = '$' + cap;
+      document.getElementById('hTeamName').textContent = teamData.name || teamId;
+      document.getElementById('dTeamName').textContent = teamData.name || teamId;
+    });
+}
+
+// ── Phase Management ──
+function showPhase(phase) {
+  document.getElementById('phaseJoin').classList.add('hidden');
+  document.getElementById('phaseWaiting').classList.add('hidden');
+  document.getElementById('phaseDecision').classList.add('hidden');
+
+  if (phase === 'join')     document.getElementById('phaseJoin').classList.remove('hidden');
+  if (phase === 'waiting')  document.getElementById('phaseWaiting').classList.remove('hidden');
+  if (phase === 'decision') {
+    document.getElementById('phaseDecision').classList.remove('hidden');
+    renderItemShop();
+    updateDecisionStats();
+    unlockDecisionForm();
+  }
+}
+
+function setWaitingMsg(icon, msg, sub) {
+  document.getElementById('waitingIcon').textContent = icon;
+  document.getElementById('waitingMsg').textContent  = msg;
+  document.getElementById('waitingSubMsg').textContent = sub;
+}
+
+// ── Timer ──
+function startClientTimer(timerEndTimestamp) {
+  clearInterval(timerInterval);
+
+  // Resolve end time once, before the interval starts
+  let endMs = Date.now() + 120 * 1000; // fallback
+  if (timerEndTimestamp) {
+    if (typeof timerEndTimestamp.toDate === 'function') {
+      endMs = timerEndTimestamp.toDate().getTime();
+    } else if (timerEndTimestamp.seconds) {
+      endMs = timerEndTimestamp.seconds * 1000;
+    } else if (typeof timerEndTimestamp === 'number') {
+      endMs = timerEndTimestamp;
+    }
+  }
+
+  timerInterval = setInterval(() => {
+    const secsLeft = Math.max(0, Math.round((endMs - Date.now()) / 1000));
+    const min = Math.floor(secsLeft / 60);
+    const sec = secsLeft % 60;
+    const el  = document.getElementById('dTimer');
+    el.textContent = `${min}:${String(sec).padStart(2, '0')}`;
+
+    if (secsLeft <= 30) el.classList.add('timer-urgent');
+    else                el.classList.remove('timer-urgent');
+
+    if (secsLeft <= 0) clearInterval(timerInterval);
+  }, 500);
+}
+
+// ── Quantity Slider ──
+function onQChange(val) {
+  document.getElementById('qDisplay').textContent = val;
+  updateDecisionStats();
+}
+
+function updateDecisionStats() {
+  const q = parseInt(document.getElementById('qSlider')?.value || 0);
+  const effFC = GameEngine.getEffectiveFC(activeEvents);
+  const vcMod = GameEngine.getVCModifier(activeEvents, activeItems);
+  const vc    = GameEngine.getEffectiveVC(q, activeEvents, activeItems);
+  const tc    = effFC + vc;
+
+  const statFC  = document.getElementById('statFC');
+  const statTVC = document.getElementById('statTVC');
+  const statTC  = document.getElementById('statTC');
+  if (!statFC) return;
+
+  statFC.textContent  = '$' + effFC;
+  statTVC.textContent = '$' + vc;
+  statTC.textContent  = '$' + tc;
+
+  // Red highlight when events raise costs
+  statFC.className  = 'value' + (effFC > GameEngine.DEFAULT_FC ? ' red' : '');
+  statTVC.className = 'value' + (vcMod > 0 ? ' red' : '');
+
+  // Show round-1 demand hint
+  const hintBlock = document.getElementById('demandHintBlock');
+  if (hintBlock) {
+    hintBlock.classList.toggle('hidden', currentRound !== 1);
+    if (currentRound === 1) updateDemandHint();
+  }
+}
+
+// ── Event Banners ──
+function renderEventBanners() {
+  const el = document.getElementById('eventBanners');
+  if (!el) return;
+  if (!activeEvents || activeEvents.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = activeEvents.map(evt =>
+    `<div class="event-banner mb-2">
+       <span class="event-banner-icon">${evt.icon || '⚡'}</span>
+       <span class="event-banner-text"> ${evt.desc}</span>
+     </div>`
+  ).join('');
+  updateDecisionStats();
+}
+
+// ── Item Shop ──
+function renderItemShop() {
+  const grid = document.getElementById('itemShopGrid');
+  if (!grid) return;
+
+  grid.innerHTML = GameEngine.ITEMS.map(item => {
+    const owned      = activeItems.find(i => i.item_id === item.item_id);
+    const canAfford  = (teamData?.total_capital || 0) >= item.cost;
+    const chipClass  = owned ? 'item-chip owned' : (!canAfford || submitted ? 'item-chip cant-afford' : 'item-chip');
+    const clickAttr  = (!owned && canAfford && !submitted) ? `onclick="buyItem('${item.item_id}')"` : '';
+    return `<div class="${chipClass}" ${clickAttr} title="${item.desc}">
+      <div class="item-chip-icon">${item.icon}</div>
+      <div class="item-chip-body">
+        <div class="item-chip-name">${item.name}</div>
+        <div class="item-chip-cost">$${item.cost}</div>
+        <div class="item-chip-desc">${item.desc}</div>
+        ${owned ? '<div class="item-chip-owned-label">✅ 已購買</div>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function buyItem(itemId) {
+  if (submitted) return;
+  const item = GameEngine.ITEMS.find(i => i.item_id === itemId);
+  if (!item) return;
+  if (activeItems.find(i => i.item_id === itemId)) return; // already owned
+
+  const cap = teamData?.total_capital || 0;
+  if (cap < item.cost) { alert('資金不足！'); return; }
+
+  activeItems.push(item);
+
+  // Show demand reveal if I01
+  if (item.item_id === 'I01') {
+    const table = GameEngine.getDemandTable(numberOfGroups);
+    const icons = ['📈', '⚖️', '📉', '💀'];
+    document.getElementById('demandRevealBody').innerHTML = table.map((t, i) =>
+      `<tr><td>${t.range}</td><td class="text-gold">$${t.price}</td><td>${icons[i]} ${t.desc}</td></tr>`
+    ).join('');
+    document.getElementById('demandRevealCard').classList.remove('hidden');
+  }
+
+  // Temporarily deduct cost from local display (actual deduction on server at clearing)
+  teamData.total_capital = cap - item.cost;
+  document.getElementById('dCapital').textContent = '$' + teamData.total_capital.toLocaleString();
+
+  // Save pending items to Firestore on the decision doc (pre-submission)
+  await db.collection('game_sessions').doc(sessionId)
+    .collection('teams').doc(teamId)
+    .update({ pending_items: activeItems.map(i => ({
+      item_id: i.item_id, name: i.name, cost: i.cost,
+      effect: i.effect, modifier: i.modifier || 0
+    }))});
+
+  updateDecisionStats();
+  renderItemShop();
+}
+
+// ── Submit Decision ──
+async function submitDecision(forced) {
+  if (submitted && !forced) return;
+  submitted = true;
+
+  const q = parseInt(document.getElementById('qSlider')?.value || 0);
+
+  await db.collection('game_sessions').doc(sessionId)
+    .collection('decisions').doc(`${teamId}_round${currentRound}`).set({
+      team_id: teamId,
+      round_number: currentRound,
+      quantity_q: q,
+      active_items: activeItems.map(i => ({
+        item_id: i.item_id, name: i.name, cost: i.cost,
+        effect: i.effect, modifier: i.modifier || 0
+      })),
+      submitted_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+  lockDecisionForm();
+
+  setWaitingMsg('✅', '決策已提交！', `生產量: ${q} 件`);
+  showPhase('waiting');
+}
+
+function lockDecisionForm() {
+  const form = document.getElementById('decisionFormCard');
+  if (form) form.classList.add('decision-locked');
+  const btn = document.getElementById('btnSubmit');
+  if (btn) { btn.disabled = true; }
+  const msg = document.getElementById('submittedMsg');
+  if (msg) msg.classList.remove('hidden');
+}
+
+function unlockDecisionForm() {
+  const form = document.getElementById('decisionFormCard');
+  if (form) form.classList.remove('decision-locked');
+  const btn = document.getElementById('btnSubmit');
+  if (btn) { btn.disabled = false; }
+  const msg = document.getElementById('submittedMsg');
+  if (msg) msg.classList.add('hidden');
+  document.getElementById('demandRevealCard').classList.add('hidden');
+  document.getElementById('qSlider').value = 0;
+  document.getElementById('qDisplay').textContent = '0';
+}
+
+// ── Post-Round Report ──
+async function loadAndShowReport() {
+  const resultDoc = await db.collection('game_sessions').doc(sessionId)
+    .collection('round_results').doc(`${teamId}_round${currentRound}`).get();
+
+  if (!resultDoc.exists) return;
+  const r = resultDoc.data();
+
+  document.getElementById('rptRound').textContent    = r.round_number;
+  document.getElementById('rptPrice').textContent    = '$' + r.market_price;
+  document.getElementById('rptTP').textContent       = r.tp;
+  document.getElementById('rptTR').textContent       = '$' + r.tr;
+  document.getElementById('rptTC').textContent       = '$' + r.tc;
+
+  const profitEl = document.getElementById('rptProfit');
+  profitEl.textContent = (r.profit >= 0 ? '+' : '') + '$' + r.profit;
+  profitEl.style.color = r.profit >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Reload team capital from Firestore for accuracy
+  const teamDoc = await db.collection('game_sessions').doc(sessionId)
+    .collection('teams').doc(teamId).get();
+  const newCap = teamDoc.data()?.total_capital || 0;
+  document.getElementById('rptNewCapital').textContent = '$' + newCap.toLocaleString();
+
+  // Shutdown warning: TR < TVC while still producing
+  if (r.below_shutdown) {
+    document.getElementById('shutdownWarning').classList.remove('hidden');
+  } else {
+    document.getElementById('shutdownWarning').classList.add('hidden');
+  }
+
+  document.getElementById('reportModal').classList.remove('hidden');
+}
+
+function closeReport() {
+  document.getElementById('reportModal').classList.add('hidden');
+  // Reset for next round
+  submitted        = false;
+  activeItems      = [];
+  roundPhaseStarted = false;
+  showPhase('waiting');
+  setWaitingMsg('⏳', '等待教師開始下一回合…', '準備好紙筆，計算下一回合的邊際表');
+}
+</script>
+</body>
+</html>

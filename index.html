@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>決戰邊際：奶茶大亨 Marginal Tycoon</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .role-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      max-width: 700px;
+      margin-top: 2rem;
+    }
+    .role-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .role-card:hover {
+      border-color: var(--gold);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 30px rgba(245,197,24,0.2);
+    }
+    .role-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+    .role-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.3rem; }
+    .role-desc { font-size: 0.8rem; color: var(--text-dim); }
+    @media (max-width: 600px) {
+      .role-cards { grid-template-columns: 1fr; max-width: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="landing-page">
+    <div class="landing-logo">🧋</div>
+    <h1 class="landing-title">決戰邊際：<span class="text-gold">奶茶大亨</span></h1>
+    <p class="landing-subtitle">Marginal Tycoon — 利潤極大化實戰遊戲</p>
+    <p class="text-dim mb-3">選擇你的角色以開始遊戲</p>
+
+    <div class="role-cards">
+      <div class="role-card" onclick="goToTeacher()">
+        <div class="role-icon">👨‍🏫</div>
+        <div class="role-name">教師</div>
+        <div class="role-desc">建立課堂、控制回合</div>
+      </div>
+      <div class="role-card" onclick="goToStudent()">
+        <div class="role-icon">🧑‍🎓</div>
+        <div class="role-name">學生</div>
+        <div class="role-desc">加入小組、決策生產</div>
+      </div>
+      <div class="role-card" onclick="goToDisplay()">
+        <div class="role-icon">📺</div>
+        <div class="role-name">大屏幕</div>
+        <div class="role-desc">課室投影、公開排行榜</div>
+      </div>
+    </div>
+
+    <p class="text-dim mt-3" style="font-size:0.8rem;">HKDSE Economics — 邊際分析 · MR=MC · LDMR</p>
+  </div>
+
+  <script>
+    function goToTeacher() { window.location.href = 'teacher.html'; }
+    function goToStudent() { window.location.href = 'student.html'; }
+    function goToDisplay() { window.location.href = 'display.html'; }
+  </script>
+</body>
+</html>

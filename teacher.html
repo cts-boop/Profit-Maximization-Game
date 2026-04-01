@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>教師控制台 — 奶茶大亨</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .session-row { display:flex; align-items:center; gap:0.8rem; flex-wrap:wrap; padding:0.8rem 1rem; background:var(--bg-input); border-radius:var(--radius-sm); margin-bottom:0.5rem; border:1px solid var(--border); transition:border-color 0.2s; }
+    .session-row:hover { border-color: rgba(233,69,96,0.4); }
+    .session-row.locked-row { border-color: rgba(78,204,163,0.3); }
+    .session-code-big { font-size:1.8rem; font-weight:900; color:var(--gold); letter-spacing:0.08em; min-width:76px; }
+    .session-meta { flex:1; min-width:140px; }
+    .session-meta .sm-info { font-size:0.8rem; color:var(--text-dim); margin-top:0.2rem; }
+    .session-actions { display:flex; gap:0.4rem; flex-wrap:wrap; }
+    .back-link { cursor:pointer; color:var(--text-dim); font-size:0.85rem; padding:0.2rem 0.6rem; border-radius:4px; user-select:none; transition:background 0.15s; }
+    .back-link:hover { color:var(--text); background:rgba(255,255,255,0.07); }
+  </style>
+</head>
+<body>
+
+  <!-- ── Top Header ── -->
+  <div class="top-header">
+    <div class="game-title" style="display:flex; align-items:center; gap:0.5rem;">
+      <span id="headerBackBtn" class="back-link hidden" onclick="backToLobby()">← 課堂管理</span>
+      <span id="headerSep" class="text-dim hidden" style="font-size:0.9rem;">／</span>
+      <span>👨‍🏫 教師控制台 — <span style="color:var(--gold);">奶茶大亨</span></span>
+    </div>
+    <div class="header-info">
+      <span id="sessionCodeDisplay" class="text-dim">未建立課堂</span>
+      <span id="roundDisplay" class="text-dim">回合: —</span>
+      <span id="statusBadge" class="badge badge-waiting">等待中</span>
+    </div>
+  </div>
+
+  <!-- ── Lobby Phase ── -->
+  <div id="lobbyPhase" class="container" style="max-width:700px; margin-top:2rem;">
+    <div class="card animate-slide-up">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>🏫 課堂管理</span>
+        <button class="btn btn-primary btn-sm" onclick="showCreateNew()">＋ 建立新課堂</button>
+      </div>
+      <div id="lobbyLoading" class="text-dim text-center" style="padding:1.5rem;">正在載入課堂列表…</div>
+      <div id="lobbyList" class="hidden"></div>
+      <div id="lobbyEmpty" class="hidden text-center" style="padding:2rem 1rem;">
+        <div style="font-size:3rem; margin-bottom:0.5rem;">🏫</div>
+        <p class="text-dim">尚未建立任何課堂</p>
+        <button class="btn btn-primary btn-lg mt-2" onclick="showCreateNew()">建立第一個課堂 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Setup Phase (before game starts) ── -->
+  <div id="setupPhase" class="container hidden" style="max-width:600px; margin-top:3rem;">
+    <div class="card animate-slide-up">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>🎮 建立新課堂</span>
+        <button class="btn btn-outline btn-sm" onclick="backToLobby()">← 返回</button>
+      </div>
+      <p class="text-dim mb-2">設定參加組數並建立課堂。系統將自動產生課堂代碼。</p>
+
+      <!-- Group Count Selector -->
+      <div id="groupCountSection" class="mb-2" style="background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:var(--radius-sm); padding:1rem;">
+        <label style="font-weight:600; display:block; margin-bottom:0.5rem;">👥 參加組數 (N)</label>
+        <div style="display:flex; align-items:center; gap:1rem;">
+          <span class="text-dim">2</span>
+          <input type="range" id="groupCountSlider" min="2" max="12" value="5" oninput="onGroupCountChange(this.value)" style="flex:1;">
+          <span class="text-dim">12</span>
+          <span id="groupCountDisplay" style="font-size:1.8rem; font-weight:900; color:var(--gold); min-width:2.5rem; text-align:center;">5</span>
+        </div>
+        <div id="demandPreview" class="mt-1" style="font-size:0.82rem;"></div>
+      </div>
+
+      <button id="btnCreateSession" class="btn btn-primary btn-lg btn-block" onclick="createSession()">
+        🧋 建立課堂
+      </button>
+      <div id="sessionCreated" class="hidden mt-3 text-center">
+        <p>課堂代碼：</p>
+        <div style="font-size:3rem;font-weight:900;color:var(--gold);" id="bigCode"></div>
+        <p class="text-dim mt-1">請學生輸入此代碼以加入遊戲</p>
+        <div class="mt-2" id="teamJoinStatus"></div>
+        <button class="btn btn-success btn-lg mt-3" onclick="startGame()">🚀 全部就緒，開始遊戲</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Game Phase (dual-column layout) ── -->
+  <div id="gamePhase" class="container-wide hidden">
+    <div class="teacher-layout">
+
+      <!-- ═══ LEFT COLUMN: Controls ═══ -->
+      <div class="flex flex-col gap-2">
+
+        <!-- Round Control -->
+        <div class="card">
+          <div class="card-header">⚙️ 回合控制</div>
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <span class="text-dim">回合</span>
+              <span id="currentRoundLarge" style="font-size:2rem;font-weight:900;color:var(--gold);">1</span>
+              <span class="text-dim">/ 6</span>
+            </div>
+            <div id="timerArea" class="hidden">
+              <div id="teacherTimer" class="timer-display" style="font-size:2rem;">2:00</div>
+            </div>
+          </div>
+          <div class="flex gap-1 flex-wrap">
+            <button id="btnStartRound" class="btn btn-success" onclick="startRound()">▶️ 開始本回合</button>
+            <button id="btnForceEnd" class="btn btn-warning hidden" onclick="forceEndRound()">⏹ 強制結束決策</button>
+            <button id="btnShowResults" class="btn btn-gold hidden" onclick="showResults()">📊 公佈結算結果</button>
+            <button id="btnNextRound" class="btn btn-primary hidden" onclick="nextRound()">➡️ 下一回合</button>
+          </div>
+          <div id="gameDoneNotice" class="hidden mt-2" style="background:rgba(78,204,163,0.08); border:1px solid rgba(78,204,163,0.3); border-radius:var(--radius-sm); padding:0.7rem 1rem;">
+            <p style="font-weight:700; color:var(--green); margin-bottom:0.2rem;">🏁 遊戲已完成！</p>
+            <p style="font-size:0.82rem; color:var(--text-dim); margin-bottom:0.5rem;">建議鎖定課堂以永久保存數據。</p>
+            <button class="btn btn-sm" style="background:rgba(78,204,163,0.15); border:1px solid var(--green); color:var(--green);" onclick="lockCurrentSession()">🔒 鎖定課堂並返回課堂管理</button>
+          </div>
+        </div>
+
+        <!-- Event Cards -->
+        <div class="card">
+          <div class="card-header">🎴 事件卡（全局效果）</div>
+          <p class="text-dim mb-2" style="font-size:0.85rem;">點擊發動後，效果即時套用於所有小組本回合。</p>
+          <div id="eventCardsArea" class="flex flex-col gap-1"></div>
+          <div id="activeEventsDisplay" class="mt-2"></div>
+        </div>
+
+        <!-- Demand Setting (Dynamic) -->
+        <div class="card">
+          <div class="card-header">📈 市場需求設定</div>
+          <div class="flex items-center gap-2 mb-1">
+            <label class="text-dim">參加組數 (N)：</label>
+            <span id="demandNDisplay" style="font-size:1.3rem; font-weight:900; color:var(--gold);">5</span>
+          </div>
+          <div class="mt-1" style="font-size:0.85rem;">
+            <p class="text-dim">動態需求階梯（依 N 自動計算）：</p>
+            <table class="data-table mt-1">
+              <thead><tr><th>供應量 Q (全班)</th><th>價格</th><th>狀態</th></tr></thead>
+              <tbody id="demandTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ RIGHT COLUMN: Monitor ═══ -->
+      <div class="flex flex-col gap-2">
+
+        <!-- Live Monitor -->
+        <div class="card">
+          <div class="card-header">📡 即時監控</div>
+          <div id="liveMonitor" class="flex flex-col gap-1"></div>
+        </div>
+
+        <!-- Debriefing Matrix (shown after clearing) -->
+        <div id="debriefingCard" class="card hidden">
+          <div class="card-header">📋 覆盤分析矩陣</div>
+          <div id="debriefingSummary" class="mb-2"></div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>小組</th>
+                <th>Q</th>
+                <th>TR</th>
+                <th>TC</th>
+                <th>利潤</th>
+                <th>MC(Q)</th>
+              </tr>
+            </thead>
+            <tbody id="debriefingBody"></tbody>
+          </table>
+          <p class="text-dim mt-1" style="font-size:0.8rem;">🔴 紅色行 = 過度生產 (MC > 市價) ／ 💀 = 未停產錯誤 (TR &lt; TVC)</p>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="card">
+          <div class="card-header">🏆 排行榜（累積資金）</div>
+          <div id="leaderboard"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Firebase SDKs ── -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/game-engine.js"></script>
+
+  <script>
+    // ── State ──
+    let sessionId = null;
+    let currentRound = 1;
+    let gameStatus = 'waiting'; // waiting, in_progress, clearing, results
+    let activeEvents = [];
+    let sessionLocked = false;
+    let timerInterval = null;
+    let timerSeconds = GameEngine.DEFAULT_TIMER_SECONDS;
+    let numberOfGroups = 5;
+    let unsubTeams = null;
+    let unsubDecisions = null;
+
+    // ── Group Count Preview ──
+    function onGroupCountChange(val) {
+      document.getElementById('groupCountDisplay').textContent = val;
+      const n = parseInt(val);
+      const table = GameEngine.getDemandTable(n);
+      document.getElementById('demandPreview').innerHTML = `<span class="text-dim">需求階梯預覽：</span> ` +
+        table.map(t => `<span style="margin-right:0.6rem;">${t.range}件→$${t.price}</span>`).join('');
+    }
+
+    // ── Setup: Create Session ──
+    async function createSession() {
+      const code = generateGameCode();
+      sessionId = code;
+      numberOfGroups = parseInt(document.getElementById('groupCountSlider').value) || 5;
+      const teams = GameEngine.getTeams(numberOfGroups);
+
+      await db.collection('game_sessions').doc(code).set({
+        session_id: code,
+        current_round: 1,
+        status: 'waiting',
+        number_of_groups: numberOfGroups,
+        active_events: [],
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Create N team slots
+      for (const team of teams) {
+        await db.collection('game_sessions').doc(code)
+          .collection('teams').doc(team.id).set({
+            team_id: team.id,
+            name: team.name,
+            emoji: team.emoji,
+            total_capital: 200,
+            active_items: [],
+            connected: false
+          });
+      }
+
+      document.getElementById('bigCode').textContent = code;
+      document.getElementById('sessionCreated').classList.remove('hidden');
+      document.getElementById('btnCreateSession').classList.add('hidden');
+      document.getElementById('groupCountSection').classList.add('hidden');
+      document.getElementById('sessionCodeDisplay').textContent = '課堂: ' + code;
+
+      // Listen for team connections
+      listenTeamJoins();
+    }
+
+    function listenTeamJoins() {
+      unsubTeams = db.collection('game_sessions').doc(sessionId)
+        .collection('teams').onSnapshot(snap => {
+          let html = '';
+          snap.forEach(doc => {
+            const t = doc.data();
+            const status = t.connected
+              ? `<span class="badge badge-submitted">✅ 已加入</span>`
+              : `<span class="badge badge-waiting">⏳ 等待中</span>`;
+            html += `<div class="flex items-center justify-between" style="padding:0.3rem 0;">
+              <span>${t.emoji} ${t.name}</span>${status}
+            </div>`;
+          });
+          document.getElementById('teamJoinStatus').innerHTML = html;
+        });
+    }
+
+    // ── Start Game ──
+    function startGame() {
+      showPhaseUI('game');
+      updateDemandTableUI();
+      renderEventCards();
+      listenLiveMonitor();
+      updateLeaderboard();
+    }
+
+    function updateDemandTableUI() {
+      document.getElementById('demandNDisplay').textContent = numberOfGroups;
+      const table = GameEngine.getDemandTable(numberOfGroups);
+      document.getElementById('demandTableBody').innerHTML = table.map(t =>
+        `<tr><td>${t.range}</td><td>$${t.price}</td><td>${t.desc}</td></tr>`
+      ).join('');
+    }
+
+    // ── Render Event Cards ──
+    function renderEventCards() {
+      let html = '';
+      for (const evt of GameEngine.EVENTS) {
+        html += `<button class="btn btn-outline btn-sm" onclick="triggerEvent('${evt.event_id}')" id="evtBtn_${evt.event_id}">
+          ${evt.icon} ${evt.name}
+        </button>`;
+      }
+      document.getElementById('eventCardsArea').innerHTML = html;
+    }
+
+    // ── Trigger Event ──
+    async function triggerEvent(eventId) {
+      const evt = GameEngine.EVENTS.find(e => e.event_id === eventId);
+      if (!evt) return;
+
+      // Check if already active
+      if (activeEvents.find(e => e.event_id === eventId)) return;
+
+      activeEvents.push(evt);
+
+      // Update Firestore
+      await db.collection('game_sessions').doc(sessionId).update({
+        active_events: activeEvents.map(e => ({
+          event_id: e.event_id,
+          name: e.name,
+          type: e.type,
+          target: e.target,
+          modifier: e.modifier,
+          desc: e.desc,
+          icon: e.icon
+        }))
+      });
+
+      // Update UI
+      document.getElementById('evtBtn_' + eventId).disabled = true;
+      renderActiveEvents();
+    }
+
+    function renderActiveEvents() {
+      if (activeEvents.length === 0) {
+        document.getElementById('activeEventsDisplay').innerHTML = '';
+        return;
+      }
+      let html = '<p class="text-dim mb-1" style="font-size:0.85rem;">已發動事件：</p>';
+      for (const evt of activeEvents) {
+        html += `<div class="event-banner mb-1">
+          <span class="event-banner-icon">${evt.icon}</span>
+          <span class="event-banner-text">${evt.desc}</span>
+        </div>`;
+      }
+      document.getElementById('activeEventsDisplay').innerHTML = html;
+    }
+
+    // ── Round Control ──
+    async function startRound() {
+      gameStatus = 'in_progress';
+      timerSeconds = GameEngine.DEFAULT_TIMER_SECONDS;
+
+      await db.collection('game_sessions').doc(sessionId).update({
+        status: 'in_progress',
+        current_round: currentRound,
+        active_events: activeEvents.map(e => ({
+          event_id: e.event_id, name: e.name, type: e.type,
+          target: e.target, modifier: e.modifier, desc: e.desc, icon: e.icon
+        })),
+        timer_end: firebase.firestore.Timestamp.fromDate(
+          new Date(Date.now() + timerSeconds * 1000)
+        )
+      });
+
+      // Clear previous round decisions
+      const prevDecs = await db.collection('game_sessions').doc(sessionId)
+        .collection('decisions').where('round_number', '==', currentRound).get();
+      const batch = db.batch();
+      prevDecs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+
+      // Update UI
+      document.getElementById('btnStartRound').classList.add('hidden');
+      document.getElementById('btnForceEnd').classList.remove('hidden');
+      document.getElementById('btnShowResults').classList.add('hidden');
+      document.getElementById('btnNextRound').classList.add('hidden');
+      document.getElementById('debriefingCard').classList.add('hidden');
+      document.getElementById('timerArea').classList.remove('hidden');
+      document.getElementById('statusBadge').className = 'badge badge-thinking';
+      document.getElementById('statusBadge').textContent = '決策中';
+
+      startTimer();
+      listenDecisions();
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timerSeconds--;
+        const min = Math.floor(timerSeconds / 60);
+        const sec = timerSeconds % 60;
+        const display = `${min}:${String(sec).padStart(2, '0')}`;
+        const el = document.getElementById('teacherTimer');
+        el.textContent = display;
+
+        if (timerSeconds <= 30) {
+          el.classList.add('timer-urgent');
+        } else {
+          el.classList.remove('timer-urgent');
+        }
+
+        if (timerSeconds <= 0) {
+          clearInterval(timerInterval);
+          forceEndRound();
+        }
+      }, 1000);
+    }
+
+    async function forceEndRound() {
+      clearInterval(timerInterval);
+      gameStatus = 'clearing';
+
+      await db.collection('game_sessions').doc(sessionId).update({
+        status: 'clearing'
+      });
+
+      document.getElementById('btnForceEnd').classList.add('hidden');
+      document.getElementById('btnShowResults').classList.remove('hidden');
+      document.getElementById('statusBadge').className = 'badge badge-event';
+      document.getElementById('statusBadge').textContent = '結算中';
+      document.getElementById('teacherTimer').textContent = '0:00';
+    }
+
+    async function showResults() {
+      gameStatus = 'results';
+
+      // Gather all decisions for this round
+      const decSnap = await db.collection('game_sessions').doc(sessionId)
+        .collection('decisions').where('round_number', '==', currentRound).get();
+
+      const teamsSnap = await db.collection('game_sessions').doc(sessionId)
+        .collection('teams').get();
+
+      const teamsData = [];
+      const teamMap = {};
+      teamsSnap.forEach(doc => { teamMap[doc.id] = doc.data(); });
+
+      const activeTeams = GameEngine.getTeams(numberOfGroups);
+      for (const team of activeTeams) {
+        let q = 0;
+        let items = [];
+        decSnap.forEach(doc => {
+          const d = doc.data();
+          if (d.team_id === team.id) {
+            q = d.quantity_q || 0;
+            items = d.active_items || [];
+          }
+        });
+        teamsData.push({ teamId: team.id, q, activeItems: items });
+      }
+
+      const result = GameEngine.clearRound(teamsData, activeEvents, numberOfGroups);
+
+      // Write results to Firestore and update capitals
+      const batch = db.batch();
+
+      for (const team of activeTeams) {
+        const tr = result.teamResults[team.id];
+        const teamRef = db.collection('game_sessions').doc(sessionId)
+          .collection('teams').doc(team.id);
+
+        const currentCap = teamMap[team.id].total_capital || 200;
+
+        // Deduct item costs
+        const td = teamsData.find(t => t.teamId === team.id);
+        let itemCost = 0;
+        if (td.activeItems) {
+          for (const item of td.activeItems) {
+            itemCost += item.cost || 0;
+          }
+        }
+
+        const newCap = currentCap + tr.profit - itemCost;
+
+        batch.update(teamRef, {
+          total_capital: newCap,
+          active_items: [] // reset items for next round
+        });
+
+        // Write round result
+        const resultRef = db.collection('game_sessions').doc(sessionId)
+          .collection('round_results').doc(`${team.id}_round${currentRound}`);
+
+        batch.set(resultRef, {
+          team_id: team.id,
+          round_number: currentRound,
+          q: tr.q,
+          tp: tr.tp,
+          tr: tr.tr,
+          tc: tr.tc,
+          profit: tr.profit,
+          market_price: result.marketPrice,
+          overproduction: tr.overproduction,
+          below_shutdown: tr.belowShutdown,
+          effective_fc: tr.effectiveFC,
+          price_premium: tr.pricePremium,
+          mc: tr.mc
+        });
+      }
+
+      // Update session status
+      batch.update(db.collection('game_sessions').doc(sessionId), {
+        status: 'results',
+        last_clearing: {
+          round: currentRound,
+          total_supply: result.totalSupply,
+          market_price: result.marketPrice,
+          market_description: result.marketDescription,
+          team_results: result.teamResults
+        }
+      });
+
+      await batch.commit();
+
+      // Render debriefing
+      renderDebriefing(result, teamsData);
+      document.getElementById('btnShowResults').classList.add('hidden');
+      if (currentRound < GameEngine.MAX_ROUNDS) {
+        document.getElementById('btnNextRound').classList.remove('hidden');
+      } else {
+        document.getElementById('gameDoneNotice').classList.remove('hidden');
+      }
+      document.getElementById('statusBadge').className = 'badge badge-submitted';
+      document.getElementById('statusBadge').textContent = '已結算';
+
+      updateLeaderboard();
+    }
+
+    function renderDebriefing(result, teamsData) {
+      const card = document.getElementById('debriefingCard');
+      card.classList.remove('hidden');
+
+      const avgQ = (result.totalSupply / numberOfGroups).toFixed(1);
+      let commentary = '';
+      if (parseFloat(avgQ) > 5) {
+        commentary = `<span style="color:var(--red);">⚠️ 平均每組 Q=${avgQ}（>5），市場傾向供應過剩。提示：MC(5)=$20 = 均衡價，理性選擇應為 Q≤5。</span>`;
+      } else if (parseFloat(avgQ) < 4) {
+        commentary = `<span style="color:var(--blue);">💡 平均每組 Q=${avgQ}（<4），市場供應不足。各組有加產空間（MC < 市價）。</span>`;
+      } else {
+        commentary = `<span style="color:var(--green);">✅ 平均每組 Q=${avgQ}，接近均衡水平。</span>`;
+      }
+
+      document.getElementById('debriefingSummary').innerHTML = `
+        <div class="flex justify-between items-center flex-wrap gap-2">
+          <div><span class="text-dim">全班總產量：</span><strong class="text-gold" style="font-size:1.5rem;">${result.totalSupply}</strong></div>
+          <div><span class="text-dim">最終市價：</span><strong class="text-gold" style="font-size:1.5rem;">$${result.marketPrice}</strong></div>
+          <div><span class="text-dim">市場狀態：</span><strong>${result.marketDescription}</strong></div>
+        </div>
+        <div style="margin-top:0.6rem; font-size:0.88rem; padding:0.5rem 0.8rem; background:rgba(245,197,24,0.06); border-radius:var(--radius-sm);">
+          <span class="text-dim">平均每組產量：</span><strong class="text-gold">${avgQ}</strong>
+          <span style="margin-left:0.5rem;">${commentary}</span>
+        </div>
+      `;
+
+      const activeTeams = GameEngine.getTeams(numberOfGroups);
+      let tbody = '';
+      for (const team of activeTeams) {
+        const tr = result.teamResults[team.id];
+        const isOver = tr.overproduction;
+        const isShutdown = tr.belowShutdown;
+        const rowClass = isOver ? 'row-overproduction' : '';
+        const mcDisplay = tr.mc !== null ? `$${tr.mc}` : '—';
+        const shutdownTag = isShutdown ? ' 💀' : '';
+        tbody += `<tr class="${rowClass}">
+          <td>${team.emoji} ${team.name}</td>
+          <td>${tr.q}</td>
+          <td>$${tr.tr}</td>
+          <td>$${tr.tc}</td>
+          <td style="font-weight:700; color:${tr.profit >= 0 ? 'var(--green)' : 'var(--red)'}">${tr.profit >= 0 ? '+' : ''}$${tr.profit}</td>
+          <td>${mcDisplay}${shutdownTag} ${isOver ? '🔴' : ''}</td>
+        </tr>`;
+      }
+      document.getElementById('debriefingBody').innerHTML = tbody;
+    }
+
+    function nextRound() {
+      currentRound++;
+      activeEvents = [];
+      document.getElementById('currentRoundLarge').textContent = currentRound;
+      document.getElementById('roundDisplay').textContent = '回合: ' + currentRound;
+      document.getElementById('btnStartRound').classList.remove('hidden');
+      document.getElementById('btnNextRound').classList.add('hidden');
+      document.getElementById('timerArea').classList.add('hidden');
+      document.getElementById('statusBadge').className = 'badge badge-waiting';
+      document.getElementById('statusBadge').textContent = '等待中';
+      document.getElementById('debriefingCard').classList.add('hidden');
+      renderActiveEvents();
+
+      // Re-enable all event buttons
+      for (const evt of GameEngine.EVENTS) {
+        const btn = document.getElementById('evtBtn_' + evt.event_id);
+        if (btn) btn.disabled = false;
+      }
+
+      db.collection('game_sessions').doc(sessionId).update({
+        current_round: currentRound,
+        status: 'waiting',
+        active_events: []
+      });
+    }
+
+    // ── Live Monitor ──
+    function listenLiveMonitor() {
+      // Listen to teams collection
+      db.collection('game_sessions').doc(sessionId)
+        .collection('teams').onSnapshot(snap => {
+          renderMonitor(snap);
+        });
+    }
+
+    function listenDecisions() {
+      if (unsubDecisions) unsubDecisions();
+      unsubDecisions = db.collection('game_sessions').doc(sessionId)
+        .collection('decisions')
+        .where('round_number', '==', currentRound)
+        .onSnapshot(snap => {
+          const submitted = new Set();
+          snap.forEach(doc => submitted.add(doc.data().team_id));
+          updateMonitorStatus(submitted);
+
+          // Auto-end if all teams submitted
+          if (submitted.size >= numberOfGroups && gameStatus === 'in_progress') {
+            forceEndRound();
+          }
+        });
+    }
+
+    function renderMonitor(snap) {
+      let html = '';
+      snap.forEach(doc => {
+        const t = doc.data();
+        html += `<div class="flex items-center justify-between" id="monitor_${t.team_id}" style="padding:0.5rem;background:var(--bg-input);border-radius:var(--radius-sm);margin-bottom:0.3rem;">
+          <span>${t.emoji} <strong>${t.name}</strong></span>
+          <span class="text-dim">$${(t.total_capital || 200).toLocaleString()}</span>
+          <span class="badge badge-waiting" id="monitorBadge_${t.team_id}">⏳ 思考中</span>
+        </div>`;
+      });
+      document.getElementById('liveMonitor').innerHTML = html;
+    }
+
+    function updateMonitorStatus(submittedSet) {
+      const activeTeams = GameEngine.getTeams(numberOfGroups);
+      for (const team of activeTeams) {
+        const badge = document.getElementById('monitorBadge_' + team.id);
+        if (!badge) continue;
+        if (submittedSet.has(team.id)) {
+          badge.className = 'badge badge-submitted';
+          badge.textContent = '✅ 已提交';
+        } else {
+          badge.className = 'badge badge-thinking';
+          badge.textContent = '🤔 思考中';
+        }
+      }
+    }
+
+    // ── Leaderboard ──
+    async function updateLeaderboard() {
+      const snap = await db.collection('game_sessions').doc(sessionId)
+        .collection('teams').orderBy('total_capital', 'desc').get();
+
+      let html = '';
+      let rank = 1;
+      const medals = ['🥇', '🥈', '🥉'];
+      snap.forEach(doc => {
+        const t = doc.data();
+        html += `<div class="leaderboard-item">
+          <div class="leaderboard-rank">${medals[rank - 1] || rank}</div>
+          <div class="leaderboard-name">${t.emoji} ${t.name}</div>
+          <div class="leaderboard-capital">$${(t.total_capital || 200).toLocaleString()}</div>
+        </div>`;
+        rank++;
+      });
+      document.getElementById('leaderboard').innerHTML = html;
+    }
+
+    // ════════════════════════════════════════════════════
+    // ── Lobby & Session Management ──
+    // ════════════════════════════════════════════════════
+
+    function showPhaseUI(phase) {
+      document.getElementById('lobbyPhase').classList.toggle('hidden', phase !== 'lobby');
+      document.getElementById('setupPhase').classList.toggle('hidden', phase !== 'setup');
+      document.getElementById('gamePhase').classList.toggle('hidden', phase !== 'game');
+      const showBack = (phase === 'game' || phase === 'setup');
+      document.getElementById('headerBackBtn').classList.toggle('hidden', !showBack);
+      document.getElementById('headerSep').classList.toggle('hidden', !showBack);
+    }
+
+    function showCreateNew() {
+      showPhaseUI('setup');
+    }
+
+    function backToLobby() {
+      if (unsubTeams)     { unsubTeams();     unsubTeams = null; }
+      if (unsubDecisions) { unsubDecisions(); unsubDecisions = null; }
+      clearInterval(timerInterval);
+      sessionId = null;
+      sessionLocked = false;
+      document.getElementById('gameDoneNotice').classList.add('hidden');
+      loadLobby();
+    }
+
+    // ── Load & Render Lobby ──
+    async function loadLobby() {
+      showPhaseUI('lobby');
+      document.getElementById('lobbyLoading').classList.remove('hidden');
+      document.getElementById('lobbyList').classList.add('hidden');
+      document.getElementById('lobbyEmpty').classList.add('hidden');
+      try {
+        const snap = await db.collection('game_sessions').orderBy('created_at', 'desc').get();
+        renderLobby(snap);
+      } catch (e) {
+        document.getElementById('lobbyLoading').textContent = '載入失敗，Firestore 未連線或規則未設定。';
+      }
+    }
+
+    function renderLobby(snap) {
+      document.getElementById('lobbyLoading').classList.add('hidden');
+      if (snap.empty) {
+        document.getElementById('lobbyEmpty').classList.remove('hidden');
+        return;
+      }
+      const statusBadges = {
+        waiting:    '<span class="badge badge-waiting">等待中</span>',
+        in_progress:'<span class="badge badge-thinking">進行中</span>',
+        clearing:   '<span class="badge badge-event">結算中</span>',
+        results:    '<span class="badge badge-submitted">已結算</span>'
+      };
+      let html = '';
+      snap.forEach(doc => {
+        const s = doc.data();
+        const code = doc.id;
+        const round = s.current_round || 1;
+        const isLocked = s.locked || false;
+        const isFinished = (round >= GameEngine.MAX_ROUNDS && s.status === 'results');
+        const badgeStatus = statusBadges[s.status] || statusBadges['waiting'];
+        const badgeLocked = isLocked
+          ? '<span class="badge" style="background:rgba(78,204,163,0.15);color:var(--green);border:1px solid rgba(78,204,163,0.5);">🔒 已鎖定</span>' : '';
+        const badgeDone = (isFinished && !isLocked)
+          ? '<span class="badge" style="background:rgba(245,197,24,0.12);color:var(--gold);border:1px solid rgba(245,197,24,0.4);">🏁 已完成</span>' : '';
+        const dateStr = s.created_at?.toDate
+          ? s.created_at.toDate().toLocaleDateString('zh-HK', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
+          : '—';
+        const nGroups = s.number_of_groups || 5;
+        html += `
+          <div class="session-row${isLocked ? ' locked-row' : ''}">
+            <div class="session-code-big">${code}</div>
+            <div class="session-meta">
+              <div style="display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center;">
+                ${badgeStatus} ${badgeLocked} ${badgeDone}
+              </div>
+              <div class="sm-info">回合 ${round} / ${GameEngine.MAX_ROUNDS} ・ ${nGroups} 組 ・ ${dateStr}</div>
+            </div>
+            <div class="session-actions">
+              <button class="btn btn-success btn-sm" onclick="resumeSession('${code}')">
+                ${isLocked ? '👁 查看' : '▶ 繼續管理'}
+              </button>
+              ${!isLocked
+                ? `<button class="btn btn-outline btn-sm" onclick="lockSession('${code}')" title="鎖定後僅可查看，不可修改">🔒 鎖定</button>`
+                : `<button class="btn btn-outline btn-sm" onclick="unlockSession('${code}')" title="解鎖以繼續管理">🔓 解鎖</button>`
+              }
+              <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:rgba(231,76,60,0.5);"
+                onclick="deleteSession('${code}')" title="永久刪除此課堂">🗑</button>
+            </div>
+          </div>`;
+      });
+      const el = document.getElementById('lobbyList');
+      el.innerHTML = html;
+      el.classList.remove('hidden');
+    }
+
+    // ── Resume Existing Session ──
+    async function resumeSession(code) {
+      sessionId = code;
+      const snap = await db.collection('game_sessions').doc(code).get();
+      if (!snap.exists) { alert('找不到該課堂，可能已被刪除。'); loadLobby(); return; }
+      const session = snap.data();
+
+      currentRound  = session.current_round || 1;
+      gameStatus    = session.status || 'waiting';
+      activeEvents  = session.active_events || [];
+      sessionLocked = session.locked || false;
+      numberOfGroups = session.number_of_groups || 5;
+
+      document.getElementById('sessionCodeDisplay').textContent = '課堂: ' + code;
+      document.getElementById('roundDisplay').textContent = '回合: ' + currentRound;
+      document.getElementById('currentRoundLarge').textContent = currentRound;
+      document.getElementById('gameDoneNotice').classList.add('hidden');
+
+      showPhaseUI('game');
+      updateDemandTableUI();
+      renderEventCards();
+      listenLiveMonitor();
+      updateLeaderboard();
+      renderActiveEvents();
+
+      // Hide all action buttons first
+      ['btnStartRound','btnForceEnd','btnShowResults','btnNextRound'].forEach(id =>
+        document.getElementById(id).classList.add('hidden'));
+      document.getElementById('timerArea').classList.add('hidden');
+
+      if (sessionLocked) {
+        document.getElementById('statusBadge').className = 'badge';
+        document.getElementById('statusBadge').style.cssText = 'background:rgba(78,204,163,0.15);color:var(--green);border:1px solid rgba(78,204,163,0.5);';
+        document.getElementById('statusBadge').textContent = '🔒 已鎖定（僅供查看）';
+        // Disable all event buttons
+        for (const evt of GameEngine.EVENTS) {
+          const btn = document.getElementById('evtBtn_' + evt.event_id);
+          if (btn) btn.disabled = true;
+        }
+        if (session.last_clearing) restoreDebriefing(session.last_clearing);
+      } else {
+        // Restore normal status
+        document.getElementById('statusBadge').style.cssText = '';
+        switch (gameStatus) {
+          case 'waiting':
+            document.getElementById('btnStartRound').classList.remove('hidden');
+            document.getElementById('statusBadge').className = 'badge badge-waiting';
+            document.getElementById('statusBadge').textContent = '等待中';
+            break;
+          case 'in_progress':
+            document.getElementById('btnForceEnd').classList.remove('hidden');
+            document.getElementById('timerArea').classList.remove('hidden');
+            document.getElementById('statusBadge').className = 'badge badge-thinking';
+            document.getElementById('statusBadge').textContent = '決策中';
+            if (session.timer_end) {
+              const endMs = session.timer_end.toDate
+                ? session.timer_end.toDate().getTime()
+                : Number(session.timer_end);
+              timerSeconds = Math.max(0, Math.round((endMs - Date.now()) / 1000));
+              document.getElementById('teacherTimer').textContent =
+                `${Math.floor(timerSeconds/60)}:${String(timerSeconds%60).padStart(2,'0')}`;
+              resumeTimerInterval();
+            }
+            listenDecisions();
+            break;
+          case 'clearing':
+            document.getElementById('btnShowResults').classList.remove('hidden');
+            document.getElementById('statusBadge').className = 'badge badge-event';
+            document.getElementById('statusBadge').textContent = '結算中';
+            break;
+          case 'results':
+            if (currentRound < GameEngine.MAX_ROUNDS) {
+              document.getElementById('btnNextRound').classList.remove('hidden');
+            } else {
+              document.getElementById('gameDoneNotice').classList.remove('hidden');
+            }
+            document.getElementById('statusBadge').className = 'badge badge-submitted';
+            document.getElementById('statusBadge').textContent = '已結算';
+            if (session.last_clearing) restoreDebriefing(session.last_clearing);
+            break;
+        }
+        // Re-enable event buttons that haven't been triggered yet
+        for (const evt of GameEngine.EVENTS) {
+          const btn = document.getElementById('evtBtn_' + evt.event_id);
+          if (btn) btn.disabled = activeEvents.some(e => e.event_id === evt.event_id);
+        }
+      }
+    }
+
+    // Resume countdown without writing new timer_end to Firestore
+    function resumeTimerInterval() {
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timerSeconds--;
+        const min = Math.floor(timerSeconds / 60);
+        const sec = timerSeconds % 60;
+        const el = document.getElementById('teacherTimer');
+        el.textContent = `${min}:${String(sec).padStart(2, '0')}`;
+        if (timerSeconds <= 30) el.classList.add('timer-urgent');
+        else el.classList.remove('timer-urgent');
+        if (timerSeconds <= 0) { clearInterval(timerInterval); forceEndRound(); }
+      }, 1000);
+    }
+
+    // Restore debriefing from stored last_clearing data
+    function restoreDebriefing(lastClearing) {
+      if (!lastClearing) return;
+      const card = document.getElementById('debriefingCard');
+      card.classList.remove('hidden');
+      document.getElementById('debriefingSummary').innerHTML = `
+        <div class="flex justify-between items-center flex-wrap gap-2">
+          <div><span class="text-dim">全班總產量：</span><strong class="text-gold" style="font-size:1.5rem;">${lastClearing.total_supply}</strong></div>
+          <div><span class="text-dim">最終市價：</span><strong class="text-gold" style="font-size:1.5rem;">$${lastClearing.market_price}</strong></div>
+          <div><span class="text-dim">市場狀態：</span><strong>${lastClearing.market_description}</strong></div>
+        </div>`;
+      const teamResults = lastClearing.team_results;
+      if (!teamResults) return;
+      let tbody = '';
+      const activeTeams = GameEngine.getTeams(numberOfGroups);
+      for (const team of activeTeams) {
+        const tr = teamResults[team.id];
+        if (!tr) continue;
+        const isOver = tr.overproduction;
+        const isShutdown = tr.belowShutdown;
+        const rowClass = isOver ? 'row-overproduction' : '';
+        const mcDisplay = tr.mc !== null && tr.mc !== undefined ? `$${tr.mc}` : '—';
+        const shutdownTag = isShutdown ? ' 💀' : '';
+        tbody += `<tr class="${rowClass}">
+          <td>${team.emoji} ${team.name}</td>
+          <td>${tr.q}</td>
+          <td>$${tr.tr}</td>
+          <td>$${tr.tc}</td>
+          <td style="font-weight:700; color:${tr.profit >= 0 ? 'var(--green)' : 'var(--red)'}">${tr.profit >= 0 ? '+' : ''}$${tr.profit}</td>
+          <td>${mcDisplay}${shutdownTag} ${isOver ? '🔴' : ''}</td>
+        </tr>`;
+      }
+      document.getElementById('debriefingBody').innerHTML = tbody;
+    }
+
+    // ── Lock / Unlock / Delete ──
+    async function lockSession(code) {
+      await db.collection('game_sessions').doc(code).update({ locked: true });
+      loadLobby();
+    }
+
+    async function unlockSession(code) {
+      await db.collection('game_sessions').doc(code).update({ locked: false });
+      loadLobby();
+    }
+
+    async function lockCurrentSession() {
+      if (!sessionId) return;
+      await db.collection('game_sessions').doc(sessionId).update({ locked: true });
+      backToLobby();
+    }
+
+    async function deleteSession(code) {
+      if (!confirm(`確定永久刪除課堂「${code}」？\n\n此操作不可撤回，所有數據將消失！`)) return;
+      const subcolls = ['teams', 'decisions', 'round_results'];
+      for (const sub of subcolls) {
+        const snap = await db.collection('game_sessions').doc(code).collection(sub).get();
+        if (!snap.empty) {
+          const batch = db.batch();
+          snap.forEach(doc => batch.delete(doc.ref));
+          await batch.commit();
+        }
+      }
+      await db.collection('game_sessions').doc(code).delete();
+      loadLobby();
+    }
+
+    // ── Boot ──
+    document.addEventListener('DOMContentLoaded', () => {
+      loadLobby();
+      onGroupCountChange(document.getElementById('groupCountSlider')?.value || 5);
+    });
+  </script>
+</body>
+</html>

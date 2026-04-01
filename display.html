@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>公開大屏幕 — 奶茶大亨</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { overflow: hidden; background: var(--bg-dark); }
+
+    /* ── Join Screen ── */
+    #joinScreen {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+    }
+
+    /* ── Screens (full-viewport) ── */
+    .screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 2rem;
+      transition: opacity 0.5s;
+    }
+    .screen.hidden { display: none; }
+
+    /* ── In-Progress Screen ── */
+    #screenProgress {
+      background: radial-gradient(ellipse at center, #1a1a3e 0%, var(--bg-dark) 70%);
+    }
+
+    .progress-top {
+      position: absolute; top: 0; left: 0; right: 0;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1rem 2rem;
+      background: rgba(0,0,0,0.4);
+      border-bottom: 1px solid var(--border);
+      font-size: 1rem;
+    }
+
+    .big-round-label {
+      font-size: 1.4rem; font-weight: 700; color: var(--text-dim);
+      margin-bottom: 0.5rem;
+    }
+
+    .team-lights {
+      display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center;
+      margin-top: 2rem;
+    }
+
+    .team-light {
+      display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+      padding: 1rem 1.5rem;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      min-width: 120px;
+      transition: border-color 0.4s, box-shadow 0.4s;
+    }
+    .team-light .tl-emoji { font-size: 2rem; }
+    .team-light .tl-name  { font-size: 0.85rem; font-weight: 600; }
+    .team-light .tl-badge { font-size: 0.75rem; }
+    .team-light.submitted {
+      border-color: var(--green);
+      box-shadow: 0 0 18px rgba(78,204,163,0.4);
+    }
+
+    /* ── Event Fullscreen Overlay ── */
+    #eventOverlay {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(0,0,0,0.85);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      animation: fadeIn 0.3s ease;
+    }
+    #eventOverlay.hidden { display: none; }
+    .event-big-icon  { font-size: 6rem; margin-bottom: 1rem; }
+    .event-big-title { font-size: 2.5rem; font-weight: 900; color: var(--red); margin-bottom: 0.5rem; }
+    .event-big-desc  { font-size: 1.4rem; color: var(--text); }
+
+    /* ── Clearing / Slot Screen ── */
+    #screenClearing {
+      background: radial-gradient(ellipse at center, #0f0f2e 0%, var(--bg-dark) 70%);
+    }
+
+    .slot-stage { text-align: center; width: 100%; max-width: 800px; }
+
+    .slot-row {
+      display: flex; align-items: flex-end; justify-content: center;
+      gap: 2rem; margin: 1.5rem 0;
+    }
+
+    .slot-item {
+      display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+    }
+
+    .slot-box {
+      background: var(--bg-input);
+      border: 3px solid var(--gold);
+      border-radius: var(--radius);
+      padding: 1rem 2rem;
+      font-size: 4rem; font-weight: 900;
+      color: var(--gold);
+      min-width: 180px; text-align: center;
+      box-shadow: 0 0 20px rgba(245,197,24,0.2);
+    }
+
+    .slot-box.revealed {
+      animation: slotSpin 0.7s ease-out;
+    }
+
+    .slot-box-label {
+      font-size: 0.85rem; color: var(--text-dim);
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+
+    .arrow-sep { font-size: 3rem; color: var(--accent); padding-bottom: 1.5rem; }
+
+    .market-status-badge {
+      display: inline-block;
+      padding: 0.5rem 1.5rem;
+      border-radius: 999px;
+      font-size: 1.2rem; font-weight: 700;
+      margin-top: 0.5rem;
+    }
+    .status-shortage { background: rgba(83,168,245,0.25); color: var(--blue); border: 2px solid var(--blue); }
+    .status-equilibrium { background: rgba(78,204,163,0.25); color: var(--green); border: 2px solid var(--green); }
+    .status-surplus    { background: rgba(255,140,66,0.25);  color: var(--orange); border: 2px solid var(--orange); }
+    .status-crash      { background: rgba(231,76,60,0.25);   color: var(--red); border: 2px solid var(--red); }
+
+    /* ── Leaderboard Screen ── */
+    #screenLeaderboard {
+      background: radial-gradient(ellipse at top, #1e1a3a 0%, var(--bg-dark) 60%);
+    }
+
+    .lb-title {
+      font-size: 2.5rem; font-weight: 900;
+      margin-bottom: 1.5rem;
+      text-shadow: 0 0 20px rgba(245,197,24,0.4);
+    }
+
+    .lb-list { width: 100%; max-width: 700px; }
+
+    .lb-list.two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 1.5rem;
+    }
+
+    .lb-row {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 1rem 1.5rem;
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      margin-bottom: 0.75rem;
+      border-left: 5px solid transparent;
+      animation: slideUp 0.4s ease-out;
+    }
+    .lb-row:nth-child(1) { border-color: gold;   font-size: 1.1rem; }
+    .lb-row:nth-child(2) { border-color: silver; }
+    .lb-row:nth-child(3) { border-color: #cd7f32; }
+
+    .lb-rank  { font-size: 1.8rem; font-weight: 900; width: 2.5rem; text-align: center; }
+    .lb-name  { font-weight: 700; flex: 1; font-size: 1.1rem; }
+    .lb-cap   { font-size: 1.3rem; font-weight: 900; color: var(--gold); }
+    .lb-delta { font-size: 0.9rem; font-weight: 600; margin-left: 0.5rem; }
+    .delta-pos { color: var(--green); }
+    .delta-neg { color: var(--red); }
+
+    @keyframes slotSpin {
+      0%   { transform: translateY(-60px); opacity: 0; }
+      60%  { transform: translateY(8px);   opacity: 1; }
+      80%  { transform: translateY(-4px); }
+      100% { transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     JOIN SCREEN
+══════════════════════════════════════ -->
+<div id="joinScreen">
+  <div style="font-size:4rem; margin-bottom:1rem;">📺</div>
+  <h1 style="font-size:2rem; font-weight:900; margin-bottom:0.5rem;">公開大屏幕</h1>
+  <p class="text-dim mb-3">輸入課堂代碼以連接投影畫面</p>
+  <div style="width:280px;" class="flex flex-col gap-2">
+    <input type="text" id="inputCode" maxlength="4" placeholder="課堂代碼"
+           style="text-align:center; font-size:2rem; font-weight:900; letter-spacing:0.3em;">
+    <button class="btn btn-primary btn-lg" onclick="connectDisplay()">連接 →</button>
+    <p id="connectError" class="text-red text-center hidden"></p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN A — In Progress (Decision Phase)
+══════════════════════════════════════ -->
+<div id="screenProgress" class="screen hidden">
+
+  <div class="progress-top">
+    <div class="game-title">🧋 <span style="color:var(--gold);">奶茶大亨</span></div>
+    <div id="progRoundLabel" style="font-weight:700;">回合 1 / 6</div>
+    <div id="progCode" class="text-dim" style="font-size:0.9rem;"></div>
+  </div>
+
+  <!-- Giant Timer -->
+  <div class="big-round-label mt-3">⏱ 決策倒數</div>
+  <div id="progTimer" class="timer-giant">2:00</div>
+
+  <!-- Demand Schedule Table -->
+  <div id="demandSchedule" style="margin-top:0.8rem; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:var(--radius); padding:0.8rem 1.2rem; max-width:520px;">
+    <div style="font-size:0.9rem; color:var(--text-dim); margin-bottom:0.5rem; text-align:center;">📈 市場需求階梯（<span id="demandNLabel">—</span> 組）</div>
+    <table style="width:100%; border-collapse:collapse; font-size:1rem; text-align:center;">
+      <thead>
+        <tr style="color:var(--text-dim); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em;">
+          <th style="padding:0.3rem 0.6rem; border-bottom:1px solid var(--border);">全班總產量 Q</th>
+          <th style="padding:0.3rem 0.6rem; border-bottom:1px solid var(--border);">市場價格</th>
+          <th style="padding:0.3rem 0.6rem; border-bottom:1px solid var(--border);">狀態</th>
+        </tr>
+      </thead>
+      <tbody id="demandScheduleBody"></tbody>
+    </table>
+  </div>
+
+  <!-- Team Lights -->
+  <div class="team-lights" id="teamLights"></div>
+
+</div>
+
+<!-- ══════════════════════════════════════
+     EVENT FULLSCREEN OVERLAY
+══════════════════════════════════════ -->
+<div id="eventOverlay" class="hidden">
+  <div class="event-big-icon" id="evtIcon">⚡</div>
+  <div class="event-big-title" id="evtTitle">事件卡觸發！</div>
+  <div class="event-big-desc" id="evtDesc">—</div>
+  <button class="btn btn-outline mt-3" onclick="hideEventOverlay()">繼續</button>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN B — Clearing (Slot Machine)
+══════════════════════════════════════ -->
+<div id="screenClearing" class="screen hidden">
+  <div class="slot-stage">
+    <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.5rem;">⚙️ 回合結算</h2>
+    <p class="text-dim mb-2">全班總產量正在計算中…</p>
+
+    <div class="slot-row">
+      <!-- Total Supply Slot -->
+      <div class="slot-item">
+        <div class="slot-box" id="slotSupply">?</div>
+        <div class="slot-box-label">全班總產量 (Total TP)</div>
+      </div>
+
+      <div class="arrow-sep">→</div>
+
+      <!-- Market Price Slot -->
+      <div class="slot-item">
+        <div class="slot-box" id="slotPrice">?</div>
+        <div class="slot-box-label">最終市場價格 (Market Price)</div>
+        <div id="slotStatusBadge"></div>
+      </div>
+    </div>
+
+    <div id="slotRevealBtn" class="hidden">
+      <button class="btn btn-gold btn-lg" onclick="revealLeaderboard()">📊 顯示排行榜</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN C — Leaderboard
+══════════════════════════════════════ -->
+<div id="screenLeaderboard" class="screen hidden">
+  <div class="lb-title">🏆 <span style="color:var(--gold);">排行榜</span></div>
+  <p id="lbRoundLabel" class="text-dim mb-2">回合 1 結算後</p>
+  <div class="lb-list" id="lbList"></div>
+  <p class="text-dim mt-3" style="font-size:0.8rem;">等待教師開始下一回合…</p>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/game-engine.js"></script>
+
+<script>
+// ── State ──
+let sessionId    = null;
+let numberOfGroups = 5;
+let currentRound = 1;
+let lastStatus   = null;
+let lastEvents   = [];
+let timerInterval = null;
+let prevCapitals  = {};   // teamId → capital before this round (for delta display)
+
+// ── Connect ──
+async function connectDisplay() {
+  const code = document.getElementById('inputCode').value.trim();
+  if (!code || code.length !== 4) { return showError('請輸入 4 位數課堂代碼'); }
+
+  const snap = await db.collection('game_sessions').doc(code).get();
+  if (!snap.exists) { return showError('找不到該課堂代碼'); }
+
+  sessionId = code;
+  numberOfGroups = snap.data().number_of_groups || 5;
+  document.getElementById('progCode').textContent = '課堂: ' + code;
+  document.getElementById('joinScreen').style.display = 'none';
+
+  // Update dynamic demand schedule
+  const eqLow = 4 * numberOfGroups;
+  const eqHigh = 5 * numberOfGroups - 1;
+  document.getElementById('demandNLabel').textContent = numberOfGroups;
+  const demandTable = GameEngine.getDemandTable(numberOfGroups);
+  const statusIcons = ['📈', '⚖️', '📉', '💀'];
+  const tierColors = ['var(--blue)', 'var(--green)', 'var(--orange)', 'var(--red)'];
+  document.getElementById('demandScheduleBody').innerHTML = demandTable.map((t, i) =>
+    `<tr>
+      <td style="padding:0.4rem 0.6rem; border-bottom:1px solid rgba(255,255,255,0.06);">${t.range}</td>
+      <td style="padding:0.4rem 0.6rem; border-bottom:1px solid rgba(255,255,255,0.06); font-weight:900; color:var(--gold); font-size:1.1rem;">$${t.price}</td>
+      <td style="padding:0.4rem 0.6rem; border-bottom:1px solid rgba(255,255,255,0.06); color:${tierColors[i]};">${statusIcons[i]} ${t.desc}</td>
+    </tr>`
+  ).join('');
+
+  // Snapshot current capitals for delta
+  const teamsSnap = await db.collection('game_sessions').doc(code).collection('teams').get();
+  teamsSnap.forEach(doc => { prevCapitals[doc.id] = doc.data().total_capital || 200; });
+
+  renderTeamLights();
+  subscribeSession();
+  subscribeDecisions();
+}
+
+function showError(msg) {
+  const el = document.getElementById('connectError');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+// ── Session Listener ──
+function subscribeSession() {
+  db.collection('game_sessions').doc(sessionId).onSnapshot(snap => {
+    if (!snap.exists) return;
+    const s = snap.data();
+    currentRound = s.current_round || 1;
+
+    document.getElementById('progRoundLabel').textContent = `回合 ${currentRound} / ${GameEngine.MAX_ROUNDS}`;
+
+    // Detect new events
+    const newEvents = s.active_events || [];
+    if (newEvents.length > lastEvents.length) {
+      const newest = newEvents[newEvents.length - 1];
+      showEventOverlay(newest);
+    }
+    lastEvents = newEvents;
+
+    // Status transitions
+    if (s.status !== lastStatus) {
+      lastStatus = s.status;
+      handleStatusChange(s);
+    }
+  });
+}
+
+// ── Decision Listener (real-time team lights) ──
+function subscribeDecisions() {
+  db.collection('game_sessions').doc(sessionId)
+    .collection('decisions')
+    .onSnapshot(snap => {
+      const submitted = new Set();
+      snap.forEach(doc => {
+        const d = doc.data();
+        if (d.round_number === currentRound) submitted.add(d.team_id);
+      });
+      updateTeamLights(submitted);
+    });
+}
+
+// ── Status Machine ──
+function handleStatusChange(session) {
+  switch (session.status) {
+    case 'waiting':
+      showScreen('screenProgress');
+      resetTimer();
+      break;
+
+    case 'in_progress':
+      showScreen('screenProgress');
+      startTimer(session.timer_end);
+      break;
+
+    case 'clearing':
+      clearInterval(timerInterval);
+      showScreen('screenClearing');
+      // Reset slots
+      document.getElementById('slotSupply').textContent = '?';
+      document.getElementById('slotPrice').textContent  = '?';
+      document.getElementById('slotStatusBadge').innerHTML = '';
+      document.getElementById('slotRevealBtn').classList.add('hidden');
+      // Animate after short delay
+      setTimeout(() => runSlotAnimation(session), 1200);
+      break;
+
+    case 'results':
+      // Slot should already be shown; reveal button appears
+      break;
+  }
+}
+
+// ── Slot Machine Animation ──
+async function runSlotAnimation(session) {
+  // Gather clearing data
+  const clearing = session.last_clearing;
+  if (!clearing) return;
+
+  const totalSupply  = clearing.total_supply;
+  const marketPrice  = clearing.market_price;
+  const marketDesc   = clearing.market_description || '';
+
+  // Phase 1: Spin total supply
+  await spinSlot('slotSupply', totalSupply, 1800);
+
+  // Short pause then spin price
+  await sleep(600);
+  await spinSlot('slotPrice', '$' + marketPrice, 1600);
+
+  // Show status badge
+  const badge = document.getElementById('slotStatusBadge');
+  badge.innerHTML = `<span class="market-status-badge ${getStatusClass(marketDesc)}">${marketDesc}</span>`;
+
+  // Show leaderboard button
+  await sleep(800);
+  document.getElementById('slotRevealBtn').classList.remove('hidden');
+}
+
+function spinSlot(id, finalValue, duration) {
+  return new Promise(resolve => {
+    const el = document.getElementById(id);
+    const chars = '0123456789';
+    const totalFrames = Math.floor(duration / 80);
+    let frame = 0;
+
+    const interval = setInterval(() => {
+      frame++;
+      if (frame >= totalFrames) {
+        clearInterval(interval);
+        el.textContent = finalValue;
+        el.classList.add('revealed');
+        setTimeout(() => el.classList.remove('revealed'), 800);
+        resolve();
+      } else {
+        // Show scrambled number during spin
+        const progress = frame / totalFrames;
+        if (progress < 0.7) {
+          const rand = Math.floor(Math.random() * 999);
+          el.textContent = String(finalValue).startsWith('$')
+            ? '$' + rand
+            : rand;
+        } else {
+          el.textContent = finalValue;
+        }
+      }
+    }, 80);
+  });
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function getStatusClass(desc) {
+  if (desc.includes('短缺')) return 'status-shortage';
+  if (desc.includes('均衡')) return 'status-equilibrium';
+  if (desc.includes('過剩')) return 'status-surplus';
+  return 'status-crash';
+}
+
+// ── Leaderboard ──
+async function revealLeaderboard() {
+  showScreen('screenLeaderboard');
+  document.getElementById('lbRoundLabel').textContent = `回合 ${currentRound} 結算後`;
+
+  const snap = await db.collection('game_sessions').doc(sessionId)
+    .collection('teams').orderBy('total_capital', 'desc').get();
+
+  const medals = ['🥇', '🥈', '🥉'];
+  let rank = 0;
+  let html = '';
+
+  // Get this round's results for delta
+  const resultsSnap = await db.collection('game_sessions').doc(sessionId)
+    .collection('round_results')
+    .where('round_number', '==', currentRound).get();
+
+  const roundProfits = {};
+  resultsSnap.forEach(doc => {
+    const r = doc.data();
+    roundProfits[r.team_id] = r.profit || 0;
+  });
+
+  snap.forEach(doc => {
+    const t = doc.data();
+    const cap = t.total_capital || 0;
+    const profit = roundProfits[t.team_id] || 0;
+    const deltaClass = profit >= 0 ? 'delta-pos' : 'delta-neg';
+    const deltaSign  = profit >= 0 ? '+' : '';
+
+    html += `<div class="lb-row" style="animation-delay:${rank * 0.12}s;">
+      <div class="lb-rank">${medals[rank] || rank + 1}</div>
+      <div class="lb-name">${t.emoji} ${t.name}</div>
+      <div class="lb-cap">$${cap.toLocaleString()}</div>
+      <div class="lb-delta ${deltaClass}">${deltaSign}$${profit.toLocaleString()}</div>
+    </div>`;
+
+    // Update prevCapitals for next round delta
+    prevCapitals[t.team_id] = cap;
+    rank++;
+  });
+
+  const lbList = document.getElementById('lbList');
+  lbList.innerHTML = html;
+  // 2-column layout when more than 6 teams
+  lbList.classList.toggle('two-col', numberOfGroups > 6);
+}
+
+// ── Timer ──
+function startTimer(timerEndTimestamp) {
+  clearInterval(timerInterval);
+  const el = document.getElementById('progTimer');
+
+  // Resolve end time once, before the interval starts
+  let endMs = Date.now() + 120 * 1000; // fallback
+  if (timerEndTimestamp) {
+    if (typeof timerEndTimestamp.toDate === 'function') {
+      endMs = timerEndTimestamp.toDate().getTime();
+    } else if (timerEndTimestamp.seconds) {
+      endMs = timerEndTimestamp.seconds * 1000;
+    } else if (typeof timerEndTimestamp === 'number') {
+      endMs = timerEndTimestamp;
+    }
+  }
+
+  timerInterval = setInterval(() => {
+    const secsLeft = Math.max(0, Math.round((endMs - Date.now()) / 1000));
+    const min = Math.floor(secsLeft / 60);
+    const sec = secsLeft % 60;
+    el.textContent = `${min}:${String(sec).padStart(2, '0')}`;
+    el.classList.toggle('timer-urgent', secsLeft <= 30);
+    if (secsLeft <= 0) clearInterval(timerInterval);
+  }, 500);
+}
+
+function resetTimer() {
+  clearInterval(timerInterval);
+  document.getElementById('progTimer').textContent = '2:00';
+  document.getElementById('progTimer').classList.remove('timer-urgent');
+}
+
+// ── Team Lights ──
+function renderTeamLights() {
+  const teams = GameEngine.getTeams(numberOfGroups);
+  const container = document.getElementById('teamLights');
+  container.innerHTML = teams.map(t =>
+    `<div class="team-light" id="light_${t.id}">
+      <div class="tl-emoji">${t.emoji}</div>
+      <div class="tl-name">${t.name}</div>
+      <div class="tl-badge"><span class="badge badge-waiting" id="lightBadge_${t.id}">⏳ 思考中</span></div>
+    </div>`
+  ).join('');
+}
+
+function updateTeamLights(submittedSet) {
+  const teams = GameEngine.getTeams(numberOfGroups);
+  for (const team of teams) {
+    const card  = document.getElementById('light_' + team.id);
+    const badge = document.getElementById('lightBadge_' + team.id);
+    if (!card || !badge) continue;
+    if (submittedSet.has(team.id)) {
+      card.classList.add('submitted');
+      badge.className  = 'badge badge-submitted';
+      badge.textContent = '✅ 已鎖定';
+    } else {
+      card.classList.remove('submitted');
+      badge.className  = 'badge badge-thinking';
+      badge.textContent = '🤔 思考中';
+    }
+  }
+}
+
+// ── Event Overlay ──
+function showEventOverlay(evt) {
+  document.getElementById('evtIcon').textContent  = evt.icon  || '⚡';
+  document.getElementById('evtTitle').textContent = evt.name  || '事件卡！';
+  document.getElementById('evtDesc').textContent  = evt.desc  || '';
+  document.getElementById('eventOverlay').classList.remove('hidden');
+
+  // Auto-dismiss after 5 seconds
+  setTimeout(hideEventOverlay, 5000);
+}
+
+function hideEventOverlay() {
+  document.getElementById('eventOverlay').classList.add('hidden');
+}
+
+// ── Screen Switcher ──
+function showScreen(id) {
+  ['screenProgress', 'screenClearing', 'screenLeaderboard'].forEach(s => {
+    document.getElementById(s).classList.add('hidden');
+  });
+  document.getElementById(id).classList.remove('hidden');
+}
+</script>
+</body>
+</html>
