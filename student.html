@@ -11,11 +11,11 @@
     .stat-box {
       background: var(--bg-input);
       border-radius: var(--radius-sm);
-      padding: 1rem;
+      padding: 0.8rem;
       text-align: center;
     }
-    .stat-box .label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
-    .stat-box .value { font-size: 1.6rem; font-weight: 900; color: var(--gold); margin-top: 0.25rem; }
+    .stat-box .label { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-box .value { font-size: 1.4rem; font-weight: 900; color: var(--gold); margin-top: 0.2rem; }
     .stat-box .value.green { color: var(--green); }
     .stat-box .value.red   { color: var(--red); }
 
@@ -23,6 +23,15 @@
 
     .phase-waiting  { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; }
     .phase-waiting .big-icon { font-size: 5rem; margin-bottom: 1rem; }
+
+    /* ── Income Statement Report ── */
+    .income-stmt { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+    .income-stmt td { padding: 0.55rem 0.2rem; }
+    .income-stmt .is-label { color: var(--text-dim); }
+    .income-stmt .is-val { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .income-stmt .is-deduct .is-label::before { content: "減："; color: var(--red); font-weight: 600; }
+    .income-stmt .is-total { border-top: 2px solid var(--accent); }
+    .income-stmt .is-total td { padding-top: 0.8rem; font-weight: 900; font-size: 1.15rem; }
 
     .report-row { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
     .report-row:last-child { border-bottom: none; }
@@ -74,9 +83,94 @@
     }
     .dh-tier span { color: var(--gold); font-weight: 700; }
 
-    /* ── 2-col layout for decision section ── */
-    .decision-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 600px) { .decision-cols { grid-template-columns: 1fr; } .item-chips { flex-direction: column; } }
+    /* ── Dashboard 2-col Layout ── */
+    .dashboard-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 0.8rem; }
+    @media (max-width: 600px) { .dashboard-cols { grid-template-columns: 1fr; } .item-chips { flex-direction: column; } }
+
+    .dash-card {
+      background: var(--bg-input);
+      border-radius: var(--radius-sm);
+      padding: 0.8rem 1rem;
+      border: 1px solid var(--border);
+    }
+    .dash-card-title { font-size: 0.78rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem; }
+
+    .dash-line { display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0; font-size: 0.88rem; }
+    .dash-line .dl-label { color: var(--text-dim); }
+    .dash-line .dl-val { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    .dash-card-total { border-top: 1.5px solid var(--border); margin-top: 0.3rem; padding-top: 0.5rem; }
+    .dash-card-total .dl-val { font-size: 1.1rem; font-weight: 900; }
+
+    /* ── News Ticker ── */
+    .news-ticker-wrap {
+      overflow: hidden;
+      background: rgba(231,76,60,0.08);
+      border: 1px solid rgba(231,76,60,0.25);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 0;
+      margin-bottom: 0.8rem;
+      position: relative;
+    }
+    .news-ticker-label {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      background: rgba(231,76,60,0.9); color: #fff;
+      font-size: 0.75rem; font-weight: 700;
+      padding: 0 0.7rem;
+      display: flex; align-items: center;
+      z-index: 1;
+      border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    }
+    .news-ticker-track {
+      display: inline-block;
+      white-space: nowrap;
+      padding-left: 6.5rem;
+      animation: ticker-scroll 14s linear infinite;
+      font-size: 0.85rem; font-weight: 600;
+    }
+    @keyframes ticker-scroll { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
+
+    /* ── Marginal Alert ── */
+    .marginal-alert {
+      background: rgba(83,168,245,0.07);
+      border: 1.5px solid rgba(83,168,245,0.3);
+      border-radius: var(--radius-sm);
+      padding: 0.7rem 1rem;
+      margin-top: 0.6rem;
+      margin-bottom: 0.6rem;
+      font-size: 0.85rem;
+      line-height: 1.7;
+      display: none;
+    }
+    .marginal-alert.alert-warn { border-color: rgba(231,76,60,0.4); background: rgba(231,76,60,0.07); }
+
+    /* ── Scratchpad ── */
+    .scratchpad { margin-top: 0.6rem; }
+    .scratchpad-toggle {
+      font-size: 0.85rem; font-weight: 700; color: var(--gold); cursor: pointer;
+      padding: 0.6rem 0.8rem; list-style: none;
+      background: rgba(245,197,24,0.07); border: 1px solid rgba(245,197,24,0.25);
+      border-radius: var(--radius-sm); margin-bottom: 0.4rem;
+    }
+    .scratchpad-toggle::-webkit-details-marker { display: none; }
+    .scratchpad[open] .scratchpad-toggle { margin-bottom: 0.5rem; border-color: rgba(245,197,24,0.4); }
+    .scratchpad table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
+    .scratchpad th { background: var(--bg-input); color: var(--text-dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.35rem 0.4rem; text-align: center; }
+    .scratchpad td { padding: 0.3rem 0.4rem; text-align: center; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .scratchpad tr.sp-active { background: rgba(245,197,24,0.12); font-weight: 700; }
+    .scratchpad .sp-mc { color: var(--accent); font-weight: 700; }
+
+    /* ── AI Commentary ── */
+    .ai-comment {
+      background: rgba(83,168,245,0.07);
+      border: 1px solid rgba(83,168,245,0.25);
+      border-radius: var(--radius-sm);
+      padding: 0.7rem 1rem;
+      margin-top: 0.8rem;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    .ai-comment-title { font-weight: 700; color: var(--blue); margin-bottom: 0.3rem; }
   </style>
 </head>
 <body>
@@ -117,126 +211,166 @@
   <div class="top-header">
     <div class="game-title">🧋 <span id="hTeamName">—</span></div>
     <div class="header-info">
-      <span class="text-dim">回合</span>
+      <span class="text-dim">第</span>
       <span id="hRound" class="text-gold" style="font-weight:900;">—</span>
-      <span class="text-dim">資金</span>
+      <span class="text-dim">期</span>
+      <span class="text-dim">公司資金</span>
       <span id="hCapital" class="text-gold" style="font-weight:900;">—</span>
     </div>
   </div>
 
   <div class="phase-waiting">
     <div class="big-icon" id="waitingIcon">⏳</div>
-    <h2 id="waitingMsg" style="font-size:1.5rem; font-weight:700;">等待教師開始回合…</h2>
-    <p class="text-dim mt-1" id="waitingSubMsg">請準備好紙筆，自行計算邊際成本表</p>
+    <h2 id="waitingMsg" style="font-size:1.5rem; font-weight:700;">等待教師開始新一期…</h2>
+    <p class="text-dim mt-1" id="waitingSubMsg">請準備好紙筆，計算生產成本</p>
   </div>
 </div>
 
 <!-- ══════════════════════════════════════
-     PHASE 2 — Decision Panel (in_progress)
+     PHASE 2 — Boss Dashboard (in_progress)
 ══════════════════════════════════════ -->
 <div id="phaseDecision" class="hidden">
-  <!-- Header -->
+  <!-- Executive Header -->
   <div class="top-header">
     <div class="game-title">🧋 <span id="dTeamName">—</span></div>
     <div class="header-info">
-      <span class="text-dim">回合</span>
+      <span class="text-dim">第</span>
       <span id="dRound" class="text-gold" style="font-weight:900;">—</span>
+      <span class="text-dim">期</span>
       <div id="dTimer" class="timer-display" style="font-size:1.4rem; margin:0;">2:00</div>
-      <span class="text-dim">資金</span>
+      <span class="text-dim">公司資金</span>
       <span id="dCapital" class="text-gold" style="font-weight:900;">—</span>
     </div>
   </div>
 
-  <div class="container" style="max-width:680px; padding-top:1rem;">
+  <div class="container" style="max-width:700px; padding-top:1rem;">
 
-    <!-- Active Event Banners -->
-    <div id="eventBanners"></div>
+    <!-- News Ticker (events as marquee) -->
+    <div id="newsTicker" class="news-ticker-wrap hidden">
+      <div class="news-ticker-label">📰 商業新聞</div>
+      <div class="news-ticker-track" id="newsTickerTrack"></div>
+    </div>
 
-    <!-- Item Shop (compact chips) -->
+    <!-- Mode 1: Fixed Price Banner -->
+    <div id="fixedPriceBanner" class="hidden mb-2" style="background:rgba(245,197,24,0.1); border:2px solid rgba(245,197,24,0.5); border-radius:var(--radius-sm); padding:1rem; text-align:center;">
+      <div style="font-size:0.85rem; color:var(--text-dim);">本期確定售價</div>
+      <div style="font-size:2.5rem; font-weight:900; color:var(--gold);" id="fixedPriceValue">$20</div>
+      <div style="font-size:0.8rem; color:var(--text-dim);">決定最佳產量，令公司利潤最大化</div>
+    </div>
+
+    <!-- Item Shop (compact chips, Mode 2 only) -->
     <div class="card mb-2" id="itemShopCard" style="padding:0.9rem 1rem;">
-      <div class="card-header" style="margin-bottom:0.7rem;">🛒 道具商店 <span class="text-dim" style="font-size:0.78rem; font-weight:400;">（效果僅限本回合，資金即時扣除）</span></div>
+      <div class="card-header" style="margin-bottom:0.7rem;">🛒 採購部 <span class="text-dim" style="font-size:0.78rem; font-weight:400;">（效果僅限本期，資金即時扣除）</span></div>
       <div class="item-chips" id="itemShopGrid"></div>
     </div>
 
-    <!-- Revealed Demand Table (if I01 purchased) -->
+    <!-- Radar (Mode 2, when active) -->
+    <div id="radarCard" class="card mb-2 hidden" style="padding:0.9rem 1rem; border:1.5px solid rgba(83,168,245,0.4); background:rgba(83,168,245,0.05);">
+      <div class="card-header" style="margin-bottom:0.5rem;">📡 商業情報 <span class="text-dim" style="font-size:0.78rem; font-weight:400;">即時掌握同業產量動態…</span></div>
+      <div id="radarContent" style="font-size:0.9rem;">
+        <div style="margin-bottom:0.3rem;"><span class="text-dim">已提交公司：</span><span id="radarCount" style="font-weight:700;">0</span> / <span id="radarTotal">0</span></div>
+        <div style="margin-bottom:0.3rem;"><span class="text-dim">已知行業總產量：</span><span id="radarTotalQ" style="font-weight:900; font-size:1.2rem; color:var(--gold);">0</span></div>
+        <div id="radarTierIndicator" style="margin-top:0.4rem; padding:0.4rem 0.8rem; border-radius:var(--radius-sm); font-weight:600;"></div>
+      </div>
+    </div>
+
+    <!-- Revealed Demand Table (if radar purchased prior round) -->
     <div id="demandRevealCard" class="card mb-2 hidden demand-table-reveal">
       <div class="card-header">🔍 精準市場調查 — 需求階梯表</div>
       <table class="data-table">
-        <thead><tr><th>全班總供應量</th><th>預測市價</th><th>市場狀態</th></tr></thead>
+        <thead><tr><th>行業總供應量</th><th>預測售價</th><th>市場狀態</th></tr></thead>
         <tbody id="demandRevealBody"></tbody>
       </table>
     </div>
 
-    <!-- Decision Form -->
+    <!-- Decision Form Card -->
     <div class="card" id="decisionFormCard">
-      <div class="card-header">👨‍🏭 生產部經理小朱 請大老闆下指示</div>
-
-      <!-- Manager speech bubble -->
-      <div style="display:flex; align-items:flex-start; gap:0.6rem; margin-bottom:0.8rem; margin-top:0.2rem;">
-        <div style="font-size:2rem; flex-shrink:0;">👷</div>
-        <div style="position:relative; background:rgba(255,255,255,0.07); border:1px solid var(--border); border-radius:0 12px 12px 12px; padding:0.6rem 0.9rem; font-size:0.85rem; color:var(--text); line-height:1.6;">
-          以下是生產方面的數據，請您自行計算銷售方面的數據，並決定本回合的生產量 (Q)。
-          <div style="position:absolute; top:0; left:-8px; width:0; height:0; border-top:8px solid transparent; border-right:8px solid var(--border);"></div>
-        </div>
-      </div>
+      <div class="card-header">👔 決策中心 — 大老闆，請下達本期生產指令</div>
 
       <!-- Round 1 demand hint -->
       <div id="demandHintBlock" class="demand-hint-card hidden">
-        <div class="dh-title">📊 市場參考（第一回合提示）</div>
-        <p style="color:var(--text-dim); font-size:0.8rem;">根據本課堂組數的需求設定，全班市價大致如下：</p>
+        <div class="dh-title">📊 市場參考（首期提示）</div>
+        <p style="color:var(--text-dim); font-size:0.8rem;">根據本行業的競爭結構，售價大致如下：</p>
         <div class="demand-hint-tiers"></div>
       </div>
 
-      <div class="decision-cols">
-        <!-- LEFT: Slider + TVC -->
-        <div>
-          <label style="font-weight:600; display:block; margin-bottom:0.4rem; font-size:0.9rem;">
-            決定生產量 (Quantity, Q)
-          </label>
-          <div class="slider-container mb-2">
-            <span class="text-dim">0</span>
-            <input type="range" id="qSlider" min="0" max="8" value="0" oninput="onQChange(this.value)">
-            <span class="text-dim">8</span>
-            <div class="slider-value" id="qDisplay">0</div>
+      <!-- ── Dashboard: OpEx + Sales Forecast ── -->
+      <div class="dashboard-cols">
+        <!-- LEFT: 營運成本 (OpEx) -->
+        <div class="dash-card">
+          <div class="dash-card-title">📦 營運成本</div>
+          <div class="dash-line">
+            <span class="dl-label">🏠 廠房租約 (Rent)</span>
+            <span class="dl-val" id="statFC" style="color:var(--gold);">$20</span>
           </div>
-
-          <!-- ⚠️ NO MC, NO MR, NO EXPECTED PROFIT -->
-          <div class="stat-box">
-            <div class="label">總可變成本 TVC</div>
-            <div class="value" id="statTVC">$0</div>
+          <div class="dash-line">
+            <span class="dl-label">👷 工資單 (Payroll)</span>
+            <span class="dl-val" id="statTVC" style="color:var(--gold);">$0</span>
+          </div>
+          <div class="dash-line dash-card-total">
+            <span class="dl-label" style="font-weight:700;">💰 總營運成本 (TC)</span>
+            <span class="dl-val" id="statTC" style="color:var(--accent);">$20</span>
           </div>
         </div>
-
-        <!-- RIGHT: Cost reference -->
-        <div>
-          <p style="font-weight:600; font-size:0.9rem; margin-bottom:0.4rem;">💰 成本參考</p>
-          <div class="stat-box mb-2">
-            <div class="label">廠房租金 FC</div>
-            <div class="value" id="statFC">$20</div>
+        <!-- RIGHT: 銷售預測 (Sales Forecast) -->
+        <div class="dash-card">
+          <div class="dash-card-title">📈 銷售預測</div>
+          <div class="dash-line">
+            <span class="dl-label">🏷️ 市場情報 (Price)</span>
+            <span class="dl-val" id="statExpPrice" style="color:var(--gold);">—</span>
           </div>
-          <!-- Total Cost preview -->
-          <div class="stat-box" style="background:rgba(233,69,96,0.1); border:1px solid rgba(233,69,96,0.3);">
-            <div class="label">總成本 TC = FC + TVC</div>
-            <div class="value" id="statTC" style="color:var(--accent);">$20</div>
+          <div class="dash-line dash-card-total">
+            <span class="dl-label" style="font-weight:700;">💵 預期營業額 (TR)</span>
+            <span class="dl-val" id="statExpTR" style="color:var(--blue);">$0</span>
           </div>
         </div>
       </div>
 
-      <div style="background:rgba(245,197,24,0.07); border:1px solid rgba(245,197,24,0.25); border-radius:var(--radius-sm); padding:0.7rem 1rem; margin-bottom:0.8rem; font-size:0.82rem;">
-        <p style="font-weight:700; color:var(--gold); margin-bottom:0.3rem;">📋 生產部經理提案</p>
-        <p style="color:var(--text-dim); line-height:1.6;">
-          除了生產方面的數據，請自行計算銷售收益，並決定最優生產量。<br>
-          由於每次 ΔQ = 1，<strong style="color:var(--text);">MC = ΔTC</strong>（逐行相減）。
-          對比市場價格，找出令利潤最大（MC ≤ 市價）的 Q 後提交。
-        </p>
+      <!-- Production Slider -->
+      <label style="font-weight:600; display:block; margin-bottom:0.4rem; font-size:0.9rem;">
+        🎚️ 決定生產量 (Q)
+      </label>
+      <div class="slider-container mb-1">
+        <span class="text-dim">0</span>
+        <input type="range" id="qSlider" min="0" max="8" value="0" oninput="onQChange(this.value)">
+        <span class="text-dim">8</span>
+        <div class="slider-value" id="qDisplay">0</div>
       </div>
 
-      <!-- Submit Button -->
-      <button id="btnSubmit" class="btn btn-primary btn-lg btn-block" onclick="submitDecision()">
-        ✅ 確認提交
+      <!-- Dynamic Marginal Alert -->
+      <div id="marginalAlert" class="marginal-alert"></div>
+
+      <!-- Scratchpad (collapsible) -->
+      <details class="scratchpad" id="scratchpadBlock">
+        <summary class="scratchpad-toggle">🧮 會計助手：若有需要，可以按我協助你計算成本啊</summary>
+        <table>
+          <thead>
+            <tr><th>Q</th><th>總租金</th><th>總工資</th><th>總成本</th><th>邊際成本 (=ΔTC)</th></tr>
+          </thead>
+          <tbody id="scratchpadBody"></tbody>
+        </table>
+      </details>
+
+      <!-- Hedging Section (Mode 2 only) -->
+      <div id="hedgingSection" class="hidden mb-2" style="background:rgba(78,204,163,0.07); border:1px solid rgba(78,204,163,0.3); border-radius:var(--radius-sm); padding:0.8rem 1rem; margin-top:0.8rem;">
+        <div style="font-weight:600; margin-bottom:0.4rem; font-size:0.9rem;">🛡️ 避險合約 <span style="font-size:0.78rem; color:var(--text-dim); font-weight:400;">(免費，將部分產量鎖定在穩定價 $15 結算)</span></div>
+        <div class="slider-container mb-1">
+          <span class="text-dim">0</span>
+          <input type="range" id="hedgeSlider" min="0" max="0" value="0" oninput="onHedgeChange(this.value)">
+          <span class="text-dim" id="hedgeMax">0</span>
+          <div class="slider-value" id="hedgeDisplay">0</div>
+        </div>
+        <div style="font-size:0.82rem; color:var(--text-dim); line-height:1.6;">
+          <div>🛡️ 避險部分：<span id="hedgeSafe" style="color:var(--green); font-weight:600;">0</span> 件 × $15 = <span id="hedgeSafeTR" style="color:var(--green); font-weight:600;">$0</span></div>
+          <div>📈 市場部分：<span id="hedgeMarket" style="color:var(--gold); font-weight:600;">0</span> 件 × 最終市價</div>
+        </div>
+      </div>
+
+      <button id="btnSubmit" class="btn btn-primary btn-lg btn-block" onclick="submitDecision()" style="margin-top:0.8rem;">
+        ✅ 確認提交生產指令
       </button>
       <p id="submittedMsg" class="text-green text-center mt-2 hidden" style="font-weight:700;">
-        ✅ 已提交！等待回合結算…
+        ✅ 已提交！等待本期結算…
       </p>
     </div>
 
@@ -247,35 +381,53 @@
      PHASE 3 — Post-Round Report Modal
 ══════════════════════════════════════ -->
 <div id="reportModal" class="modal-overlay hidden">
-  <div class="modal-content animate-slide-up" style="max-width:420px;">
-    <div style="font-size:2.5rem; margin-bottom:0.5rem;">📋</div>
-    <h2 style="margin-bottom:1rem;">回合 <span id="rptRound">—</span> 結算報告</h2>
+  <div class="modal-content animate-slide-up" style="max-width:440px;">
+    <div style="font-size:2.5rem; margin-bottom:0.5rem;">📊</div>
+    <h2 style="margin-bottom:0.2rem;">第 <span id="rptRound">—</span> 期 損益表</h2>
+    <p class="text-dim" style="font-size:0.82rem; margin-bottom:1rem;">Income Statement</p>
 
-    <div class="mb-2">
-      <div class="report-row">
-        <span class="r-label">最終市價 (Market Price)</span>
-        <span class="r-val text-gold" id="rptPrice">—</span>
-      </div>
-      <div class="report-row">
-        <span class="r-label">總產量 (TP)</span>
-        <span class="r-val" id="rptTP">—</span>
-      </div>
-      <div class="report-row">
-        <span class="r-label">總收入 TR = TP × Price</span>
-        <span class="r-val text-blue" id="rptTR">—</span>
-      </div>
-      <div class="report-row">
-        <span class="r-label">總成本 TC = FC + TVC</span>
-        <span class="r-val" id="rptTC">—</span>
-      </div>
-      <div class="report-row" style="border-top: 2px solid var(--accent); padding-top:0.8rem;">
-        <span class="r-label" style="font-weight:700;">淨利潤 (Net Profit)</span>
-        <span class="r-val" id="rptProfit" style="font-size:1.4rem;">—</span>
-      </div>
-      <div class="report-row">
-        <span class="r-label">更新後累積資金</span>
-        <span class="r-val text-gold" id="rptNewCapital">—</span>
-      </div>
+    <table class="income-stmt">
+      <tbody>
+        <tr>
+          <td class="is-label">營業額 (Revenue)</td>
+          <td class="is-val text-blue" id="rptTR">—</td>
+        </tr>
+        <tr class="is-deduct">
+          <td class="is-label">廠房租金 (Rent)</td>
+          <td class="is-val" id="rptRent" style="color:var(--red);">—</td>
+        </tr>
+        <tr class="is-deduct">
+          <td class="is-label">工資支出 (Payroll)</td>
+          <td class="is-val" id="rptPayroll" style="color:var(--red);">—</td>
+        </tr>
+        <tr class="hidden" id="hedgeReportRow">
+          <td class="is-label">🛡️ 避險合約</td>
+          <td class="is-val"><span id="rptHedge">—</span><span id="hedgeSuccessTag" class="hidden" style="color:var(--green); font-weight:700; margin-left:0.4rem;">✅</span></td>
+        </tr>
+        <tr class="is-total">
+          <td style="font-weight:900;">本期淨利潤 (Net Profit)</td>
+          <td class="is-val" id="rptProfit" style="font-size:1.3rem;">—</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="report-row" style="margin-top:0.6rem; border-top:1px solid var(--border); padding-top:0.6rem;">
+      <span class="r-label">產量 (Q)</span>
+      <span class="r-val" id="rptTP">—</span>
+    </div>
+    <div class="report-row">
+      <span class="r-label">最終售價</span>
+      <span class="r-val text-gold" id="rptPrice">—</span>
+    </div>
+    <div class="report-row">
+      <span class="r-label">更新後公司資金</span>
+      <span class="r-val text-gold" id="rptNewCapital">—</span>
+    </div>
+
+    <!-- AI Commentary -->
+    <div id="aiComment" class="ai-comment hidden">
+      <div class="ai-comment-title">🤖 AI 營運顧問點評</div>
+      <p id="aiCommentText"></p>
     </div>
 
     <!-- Shutdown Warning -->
@@ -283,7 +435,7 @@
       <div class="skull">💀</div>
       <p style="font-weight:700; color:var(--red);">跌穿停產點！</p>
       <p style="font-size:0.85rem; color:var(--text-dim); margin-top:0.3rem;">
-        你的總收入 (TR) 低於總可變成本 (TVC)！<br>
+        你的營業額 (TR) 低於工資支出 (TVC)！<br>
         在此情況下，停止生產 (Q=0) 反而損失更少。
       </p>
     </div>
@@ -311,9 +463,11 @@ let activeEvents     = [];
 let activeItems      = [];  // items purchased this round
 let timerInterval    = null;
 let submitted        = false;
-let roundPhaseStarted = false;  // prevents timer reset on each Firestore update
+let roundPhaseStarted = false;
 let unsubSession     = null;
 let unsubTeam        = null;
+let unsubRadar       = null;
+let gameMode         = 1;
 let sessionTeams     = [];  // dynamic teams for this session
 
 // ── Group Slot Buttons (dynamic based on session N) ──
@@ -346,6 +500,7 @@ async function validateCode() {
   if (!sessionDoc.exists) { return showJoinError('找不到該課堂代碼，請確認後重試'); }
   const session = sessionDoc.data();
   numberOfGroups = session.number_of_groups || 5;
+  gameMode = session.game_mode || 1;
   const teams = GameEngine.getTeams(numberOfGroups);
   renderGroupSlots(teams);
   // Show the group selection area
@@ -359,11 +514,11 @@ async function validateCode() {
 function updateDemandHint() {
   const hintBlock = document.getElementById('demandHintBlock');
   if (!hintBlock) return;
-  const table = GameEngine.getDemandTable(numberOfGroups);
+  const table = GameEngine.getDemandTable(numberOfGroups, gameMode);
   hintBlock.querySelector('.demand-hint-tiers').innerHTML = table.map(t =>
-    `<div class="dh-tier">全班 ${t.range}件 → <span>$${t.price}</span></div>`
+    `<div class="dh-tier">行業總產量 ${t.range}件 → <span>$${t.price}</span></div>`
   ).join('');
-  hintBlock.querySelector('p').textContent = `根據 ${numberOfGroups} 組的需求設定，全班市價大致如下：`;
+  hintBlock.querySelector('p').textContent = `根據 ${numberOfGroups} 間公司的行業結構，售價大致如下：`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -415,6 +570,12 @@ function subscribeSession() {
       const session = snap.data();
       currentRound  = session.current_round || 1;
       activeEvents  = (session.active_events || []);
+      gameMode      = session.game_mode || 1;
+
+      // Update fixed price for Mode 1
+      if (gameMode === 1 && session.fixed_market_price) {
+        document.getElementById('fixedPriceValue').textContent = '$' + session.fixed_market_price;
+      }
 
       // Update header in all phases
       document.querySelectorAll('[id^="hRound"], [id^="dRound"]')
@@ -432,13 +593,13 @@ function subscribeSession() {
           activeItems = [];
           roundPhaseStarted = false;
           showPhase('waiting');
-          setWaitingMsg('⏳', '等待教師開始回合…', '請準備好紙筆，自行計算邊際成本表');
+          setWaitingMsg('⏳', '等待教師開始新一期…', '請準備好紙筆，計算生產成本');
           break;
 
         case 'in_progress':
           if (submitted) {
             showPhase('waiting');
-            setWaitingMsg('✅', '決策已提交！', '等待其他小組提交，回合即將結算…');
+            setWaitingMsg('✅', '生產指令已提交！', '等待其他公司提交，即將結算…');
           } else if (!roundPhaseStarted) {
             // First time entering this round's decision phase — start timer once
             roundPhaseStarted = true;
@@ -458,7 +619,7 @@ function subscribeSession() {
             submitDecision(true);
           } else {
             showPhase('waiting');
-            setWaitingMsg('⏳', '正在結算…', '教師正在公佈結果');
+            setWaitingMsg('⏳', '正在結算…', '即將公佈本期損益報告');
           }
           break;
 
@@ -495,7 +656,28 @@ function showPhase(phase) {
   if (phase === 'waiting')  document.getElementById('phaseWaiting').classList.remove('hidden');
   if (phase === 'decision') {
     document.getElementById('phaseDecision').classList.remove('hidden');
-    renderItemShop();
+
+    if (gameMode === 1) {
+      document.getElementById('itemShopCard').classList.add('hidden');
+      document.getElementById('hedgingSection').classList.add('hidden');
+      document.getElementById('radarCard').classList.add('hidden');
+      document.getElementById('fixedPriceBanner').classList.remove('hidden');
+      document.getElementById('demandHintBlock').classList.add('hidden');
+    } else {
+      document.getElementById('itemShopCard').classList.remove('hidden');
+      document.getElementById('hedgingSection').classList.remove('hidden');
+      document.getElementById('fixedPriceBanner').classList.add('hidden');
+      renderItemShop();
+      // Check radar
+      const hasRadar = teamData?.radar_active_round === currentRound;
+      if (hasRadar) {
+        document.getElementById('radarCard').classList.remove('hidden');
+        subscribeRadar();
+      } else {
+        document.getElementById('radarCard').classList.add('hidden');
+      }
+    }
+
     updateDecisionStats();
     unlockDecisionForm();
   }
@@ -540,7 +722,25 @@ function startClientTimer(timerEndTimestamp) {
 // ── Quantity Slider ──
 function onQChange(val) {
   document.getElementById('qDisplay').textContent = val;
+  // Update hedge slider max
+  const hedgeSlider = document.getElementById('hedgeSlider');
+  if (hedgeSlider && gameMode === 2) {
+    const q = parseInt(val);
+    hedgeSlider.max = q;
+    hedgeSlider.value = Math.min(parseInt(hedgeSlider.value), q);
+    document.getElementById('hedgeMax').textContent = q;
+    onHedgeChange(hedgeSlider.value);
+  }
   updateDecisionStats();
+}
+
+function onHedgeChange(val) {
+  const hq = parseInt(val);
+  const q = parseInt(document.getElementById('qSlider')?.value || 0);
+  document.getElementById('hedgeDisplay').textContent = hq;
+  document.getElementById('hedgeSafe').textContent = hq;
+  document.getElementById('hedgeSafeTR').textContent = '$' + (hq * 15);
+  document.getElementById('hedgeMarket').textContent = (q - hq);
 }
 
 function updateDecisionStats() {
@@ -560,28 +760,93 @@ function updateDecisionStats() {
   statTC.textContent  = '$' + tc;
 
   // Red highlight when events raise costs
-  statFC.className  = 'value' + (effFC > GameEngine.DEFAULT_FC ? ' red' : '');
-  statTVC.className = 'value' + (vcMod > 0 ? ' red' : '');
+  statFC.style.color  = (effFC > GameEngine.DEFAULT_FC) ? 'var(--red)' : 'var(--gold)';
+  statTVC.style.color = (vcMod > 0) ? 'var(--red)' : 'var(--gold)';
 
-  // Show round-1 demand hint
+  // Sales Forecast: expected price
+  const statExpPrice = document.getElementById('statExpPrice');
+  const statExpTR = document.getElementById('statExpTR');
+  if (statExpPrice) {
+    if (gameMode === 1) {
+      const fp = document.getElementById('fixedPriceValue')?.textContent || '$20';
+      statExpPrice.textContent = fp + ' (確定)';
+      const price = parseInt(fp.replace('$','')) || 20;
+      statExpTR.textContent = '$' + (q * price);
+    } else {
+      statExpPrice.textContent = '視乎行業總產量';
+      statExpTR.textContent = '待定';
+    }
+  }
+
+  // Dynamic Marginal Alert
+  const alertEl = document.getElementById('marginalAlert');
+  if (alertEl) {
+    if (q > 0) {
+      const mc = GameEngine.getEffectiveMC(q, activeEvents, activeItems);
+      let mrText = '';
+      let isWarn = false;
+      if (gameMode === 1) {
+        const fp = parseInt((document.getElementById('fixedPriceValue')?.textContent || '$20').replace('$','')) || 20;
+        mrText = `營業額將增加 $${fp} (即MR)`;
+        isWarn = (mc > fp);
+      } else {
+        mrText = `營業額增加取決於最終售價 (MR=售價)`;
+        isWarn = false;
+      }
+      alertEl.innerHTML = `<span style="font-weight:700;">${isWarn ? '⚠️' : '💡'} 第 ${q} 件：</span>增加這 1 件產量，<strong style="color:var(--accent);">總成本增加 $${mc}</strong> (即MC)，而<strong style="color:var(--blue);">${mrText}</strong>。`
+        + (isWarn ? `<br><span style="color:var(--red); font-weight:600;">⚠ MC > 售價，增產將令利潤減少！</span>` : '');
+      alertEl.style.display = 'block';
+      alertEl.className = 'marginal-alert' + (isWarn ? ' alert-warn' : '');
+    } else {
+      alertEl.style.display = 'none';
+    }
+  }
+
+  // Scratchpad Table
+  renderScratchpad(q, effFC, vcMod);
+
+  // Show round-1 demand hint (Mode 2 only)
   const hintBlock = document.getElementById('demandHintBlock');
   if (hintBlock) {
-    hintBlock.classList.toggle('hidden', currentRound !== 1);
-    if (currentRound === 1) updateDemandHint();
+    const showHint = (currentRound === 1 && gameMode === 2);
+    hintBlock.classList.toggle('hidden', !showHint);
+    if (showHint) updateDemandHint();
   }
 }
 
-// ── Event Banners ──
+function renderScratchpad(activeQ, effFC, vcMod) {
+  const body = document.getElementById('scratchpadBody');
+  if (!body) return;
+  let rows = '';
+  for (let i = 0; i <= 8; i++) {
+    const vc = GameEngine.getEffectiveVC(i, activeEvents, activeItems);
+    const tc = effFC + vc;
+    const mc = (i > 0) ? (tc - (effFC + GameEngine.getEffectiveVC(i - 1, activeEvents, activeItems))) : '—';
+    const isActive = (i === activeQ);
+    rows += `<tr class="${isActive ? 'sp-active' : ''}">
+      <td>${i}</td>
+      <td>$${effFC}</td>
+      <td>$${vc}</td>
+      <td>$${tc}</td>
+      <td class="sp-mc">${typeof mc === 'number' ? '$' + mc : '—'}</td>
+    </tr>`;
+  }
+  body.innerHTML = rows;
+}
+
+// ── Event News Ticker ──
 function renderEventBanners() {
-  const el = document.getElementById('eventBanners');
-  if (!el) return;
-  if (!activeEvents || activeEvents.length === 0) { el.innerHTML = ''; return; }
-  el.innerHTML = activeEvents.map(evt =>
-    `<div class="event-banner mb-2">
-       <span class="event-banner-icon">${evt.icon || '⚡'}</span>
-       <span class="event-banner-text"> ${evt.desc}</span>
-     </div>`
-  ).join('');
+  const ticker = document.getElementById('newsTicker');
+  const track = document.getElementById('newsTickerTrack');
+  if (!ticker || !track) return;
+  if (!activeEvents || activeEvents.length === 0) {
+    ticker.classList.add('hidden');
+    return;
+  }
+  // Build ticker text (doubled for seamless loop)
+  const text = activeEvents.map(evt => `${evt.icon || '⚡'} ${evt.desc}`).join('　　　');
+  track.textContent = text + '　　　' + text;
+  ticker.classList.remove('hidden');
   updateDecisionStats();
 }
 
@@ -589,6 +854,7 @@ function renderEventBanners() {
 function renderItemShop() {
   const grid = document.getElementById('itemShopGrid');
   if (!grid) return;
+  if (gameMode === 1) { grid.innerHTML = ''; return; }
 
   grid.innerHTML = GameEngine.ITEMS.map(item => {
     const owned      = activeItems.find(i => i.item_id === item.item_id);
@@ -611,28 +877,23 @@ async function buyItem(itemId) {
   if (submitted) return;
   const item = GameEngine.ITEMS.find(i => i.item_id === itemId);
   if (!item) return;
-  if (activeItems.find(i => i.item_id === itemId)) return; // already owned
+  if (activeItems.find(i => i.item_id === itemId)) return;
 
   const cap = teamData?.total_capital || 0;
   if (cap < item.cost) { alert('資金不足！'); return; }
 
   activeItems.push(item);
 
-  // Show demand reveal if I01
-  if (item.item_id === 'I01') {
-    const table = GameEngine.getDemandTable(numberOfGroups);
-    const icons = ['📈', '⚖️', '📉', '💀'];
-    document.getElementById('demandRevealBody').innerHTML = table.map((t, i) =>
-      `<tr><td>${t.range}</td><td class="text-gold">$${t.price}</td><td>${icons[i]} ${t.desc}</td></tr>`
-    ).join('');
-    document.getElementById('demandRevealCard').classList.remove('hidden');
+  // Radar activates next round
+  if (item.item_id === 'I_RADAR') {
+    await db.collection('game_sessions').doc(sessionId)
+      .collection('teams').doc(teamId)
+      .update({ radar_active_round: currentRound + 1 });
   }
 
-  // Temporarily deduct cost from local display (actual deduction on server at clearing)
   teamData.total_capital = cap - item.cost;
   document.getElementById('dCapital').textContent = '$' + teamData.total_capital.toLocaleString();
 
-  // Save pending items to Firestore on the decision doc (pre-submission)
   await db.collection('game_sessions').doc(sessionId)
     .collection('teams').doc(teamId)
     .update({ pending_items: activeItems.map(i => ({
@@ -650,12 +911,14 @@ async function submitDecision(forced) {
   submitted = true;
 
   const q = parseInt(document.getElementById('qSlider')?.value || 0);
+  const hedgeQ = (gameMode === 2) ? parseInt(document.getElementById('hedgeSlider')?.value || 0) : 0;
 
   await db.collection('game_sessions').doc(sessionId)
     .collection('decisions').doc(`${teamId}_round${currentRound}`).set({
       team_id: teamId,
       round_number: currentRound,
       quantity_q: q,
+      hedge_q: hedgeQ,
       active_items: activeItems.map(i => ({
         item_id: i.item_id, name: i.name, cost: i.cost,
         effect: i.effect, modifier: i.modifier || 0
@@ -665,7 +928,7 @@ async function submitDecision(forced) {
 
   lockDecisionForm();
 
-  setWaitingMsg('✅', '決策已提交！', `生產量: ${q} 件`);
+  setWaitingMsg('✅', '生產指令已提交！', `本期產量: ${q} 件`);
   showPhase('waiting');
 }
 
@@ -688,9 +951,17 @@ function unlockDecisionForm() {
   document.getElementById('demandRevealCard').classList.add('hidden');
   document.getElementById('qSlider').value = 0;
   document.getElementById('qDisplay').textContent = '0';
+  // Reset hedge
+  const hs = document.getElementById('hedgeSlider');
+  if (hs) { hs.value = 0; hs.max = 0; }
+  document.getElementById('hedgeDisplay').textContent = '0';
+  document.getElementById('hedgeMax').textContent = '0';
+  document.getElementById('hedgeSafe').textContent = '0';
+  document.getElementById('hedgeSafeTR').textContent = '$0';
+  document.getElementById('hedgeMarket').textContent = '0';
 }
 
-// ── Post-Round Report ──
+// ── Post-Round Report (Income Statement) ──
 async function loadAndShowReport() {
   const resultDoc = await db.collection('game_sessions').doc(sessionId)
     .collection('round_results').doc(`${teamId}_round${currentRound}`).get();
@@ -702,7 +973,26 @@ async function loadAndShowReport() {
   document.getElementById('rptPrice').textContent    = '$' + r.market_price;
   document.getElementById('rptTP').textContent       = r.tp;
   document.getElementById('rptTR').textContent       = '$' + r.tr;
-  document.getElementById('rptTC').textContent       = '$' + r.tc;
+
+  // Income Statement: Rent (FC) and Payroll (TVC)
+  document.getElementById('rptRent').textContent     = '-$' + r.effectiveFC;
+  document.getElementById('rptPayroll').textContent  = '-$' + r.vc;
+
+  // Hedging info
+  const hedgeRow = document.getElementById('hedgeReportRow');
+  if (hedgeRow) {
+    if (r.hedge_q > 0) {
+      hedgeRow.classList.remove('hidden');
+      document.getElementById('rptHedge').textContent = r.hedge_q + ' 件 (穩定價 $15)';
+      if (r.hedge_success) {
+        document.getElementById('hedgeSuccessTag').classList.remove('hidden');
+      } else {
+        document.getElementById('hedgeSuccessTag').classList.add('hidden');
+      }
+    } else {
+      hedgeRow.classList.add('hidden');
+    }
+  }
 
   const profitEl = document.getElementById('rptProfit');
   profitEl.textContent = (r.profit >= 0 ? '+' : '') + '$' + r.profit;
@@ -721,17 +1011,74 @@ async function loadAndShowReport() {
     document.getElementById('shutdownWarning').classList.add('hidden');
   }
 
+  // AI Commentary
+  const aiComment = document.getElementById('aiComment');
+  const aiText = document.getElementById('aiCommentText');
+  if (aiComment && aiText) {
+    let comments = [];
+    if (r.overproduction) {
+      comments.push('⚠️ 你的邊際成本 (MC) 已超過售價，代表最後幾件產品的生產成本高於收入，屬於「過度生產」。下次試試減少 Q，直到 MC ≤ 售價。');
+    }
+    if (r.below_shutdown) {
+      comments.push('💀 營業額甚至無法覆蓋工資支出 (TVC)！此時停產 (Q=0) 只需承擔租金損失，比繼續生產虧更少。');
+    }
+    if (r.profit > 0 && !r.overproduction) {
+      comments.push('👍 本期錄得盈利，且沒有過度生產，決策表現良好！');
+    }
+    if (r.profit <= 0 && !r.overproduction && !r.below_shutdown && r.tp > 0) {
+      comments.push('📉 雖然生產決策正確 (MC ≤ 售價)，但由於固定成本或市場價格影響，本期仍錄得虧損。短期內只要 TR ≥ TVC，繼續營運是合理的。');
+    }
+    if (r.tp === 0) {
+      comments.push('🏭 本期選擇停產，損失僅限於廠房租金 (FC)。停產是在 TR < TVC 時的最佳策略。');
+    }
+    if (comments.length > 0) {
+      aiText.innerHTML = comments.join('<br><br>');
+      aiComment.classList.remove('hidden');
+    } else {
+      aiComment.classList.add('hidden');
+    }
+  }
+
   document.getElementById('reportModal').classList.remove('hidden');
 }
 
 function closeReport() {
   document.getElementById('reportModal').classList.add('hidden');
-  // Reset for next round
   submitted        = false;
   activeItems      = [];
   roundPhaseStarted = false;
+  if (unsubRadar) { unsubRadar(); unsubRadar = null; }
   showPhase('waiting');
-  setWaitingMsg('⏳', '等待教師開始下一回合…', '準備好紙筆，計算下一回合的邊際表');
+  setWaitingMsg('⏳', '等待教師開始下一期…', '準備好紙筆，計算下一期的生產成本');
+}
+
+// ── Radar Subscription (Mode 2) ──
+function subscribeRadar() {
+  if (unsubRadar) unsubRadar();
+  document.getElementById('radarTotal').textContent = numberOfGroups;
+  unsubRadar = db.collection('game_sessions').doc(sessionId)
+    .collection('decisions')
+    .where('round_number', '==', currentRound)
+    .onSnapshot(snap => {
+      let totalQ = 0;
+      let count = 0;
+      snap.forEach(doc => {
+        const d = doc.data();
+        totalQ += (d.quantity_q || 0);
+        count++;
+      });
+      document.getElementById('radarCount').textContent = count;
+      document.getElementById('radarTotalQ').textContent = totalQ;
+      const tier = GameEngine.getMarketPrice(totalQ, numberOfGroups, 2);
+      const indicator = document.getElementById('radarTierIndicator');
+      let bgColor, textColor, icon;
+      if (tier.price >= 20) { bgColor = 'rgba(78,204,163,0.15)'; textColor = 'var(--green)'; icon = '🟢'; }
+      else if (tier.price === 15) { bgColor = 'rgba(255,140,66,0.15)'; textColor = 'var(--orange)'; icon = '🟡'; }
+      else { bgColor = 'rgba(231,76,60,0.15)'; textColor = 'var(--red)'; icon = '🔴'; }
+      indicator.style.background = bgColor;
+      indicator.style.color = textColor;
+      indicator.textContent = `${icon} 若維持此產量 → 預測市價 $${tier.price} (${tier.description})`;
+    });
 }
 </script>
 </body>

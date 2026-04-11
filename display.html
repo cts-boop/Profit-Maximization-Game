@@ -211,7 +211,7 @@
   <div class="big-round-label mt-3">⏱ 決策倒數</div>
   <div id="progTimer" class="timer-giant">2:00</div>
 
-  <!-- Demand Schedule Table -->
+  <!-- Demand Schedule Table (Mode 2) -->
   <div id="demandSchedule" style="margin-top:0.8rem; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:var(--radius); padding:0.8rem 1.2rem; max-width:520px;">
     <div style="font-size:0.9rem; color:var(--text-dim); margin-bottom:0.5rem; text-align:center;">📈 市場需求階梯（<span id="demandNLabel">—</span> 組）</div>
     <table style="width:100%; border-collapse:collapse; font-size:1rem; text-align:center;">
@@ -224,6 +224,13 @@
       </thead>
       <tbody id="demandScheduleBody"></tbody>
     </table>
+  </div>
+
+  <!-- Fixed Price Display (Mode 1) -->
+  <div id="fixedPriceSchedule" class="hidden" style="margin-top:0.8rem; background:rgba(245,197,24,0.08); border:2px solid rgba(245,197,24,0.4); border-radius:var(--radius); padding:1.2rem 2rem; text-align:center; max-width:520px;">
+    <div style="font-size:0.9rem; color:var(--text-dim);">📊 本回合教師設定市價 (Price Taker)</div>
+    <div id="displayFixedPrice" style="font-size:4rem; font-weight:900; color:var(--gold); margin:0.3rem 0;">$20</div>
+    <div style="font-size:0.8rem; color:var(--text-dim);">所有小組面對相同的固定價格</div>
   </div>
 
   <!-- Team Lights -->
@@ -291,6 +298,7 @@
 <script>
 // ── State ──
 let sessionId    = null;
+let gameMode     = 1;
 let numberOfGroups = 5;
 let currentRound = 1;
 let lastStatus   = null;
@@ -308,23 +316,31 @@ async function connectDisplay() {
 
   sessionId = code;
   numberOfGroups = snap.data().number_of_groups || 5;
+  gameMode = snap.data().game_mode || 1;
   document.getElementById('progCode').textContent = '課堂: ' + code;
   document.getElementById('joinScreen').style.display = 'none';
 
-  // Update dynamic demand schedule
-  const eqLow = 4 * numberOfGroups;
-  const eqHigh = 5 * numberOfGroups - 1;
-  document.getElementById('demandNLabel').textContent = numberOfGroups;
-  const demandTable = GameEngine.getDemandTable(numberOfGroups);
-  const statusIcons = ['📈', '⚖️', '📉', '💀'];
-  const tierColors = ['var(--blue)', 'var(--green)', 'var(--orange)', 'var(--red)'];
-  document.getElementById('demandScheduleBody').innerHTML = demandTable.map((t, i) =>
-    `<tr>
-      <td style="padding:0.4rem 0.6rem; border-bottom:1px solid rgba(255,255,255,0.06);">${t.range}</td>
-      <td style="padding:0.4rem 0.6rem; border-bottom:1px solid rgba(255,255,255,0.06); font-weight:900; color:var(--gold); font-size:1.1rem;">$${t.price}</td>
-      <td style="padding:0.4rem 0.6rem; border-bottom:1px solid rgba(255,255,255,0.06); color:${tierColors[i]};">${statusIcons[i]} ${t.desc}</td>
-    </tr>`
-  ).join('');
+  // Mode-aware demand/price display
+  if (gameMode === 1) {
+    document.getElementById('demandSchedule').classList.add('hidden');
+    document.getElementById('fixedPriceSchedule').classList.remove('hidden');
+    const fp = snap.data().fixed_market_price || 20;
+    document.getElementById('displayFixedPrice').textContent = '$' + fp;
+  } else {
+    document.getElementById('demandSchedule').classList.remove('hidden');
+    document.getElementById('fixedPriceSchedule').classList.add('hidden');
+    document.getElementById('demandNLabel').textContent = numberOfGroups;
+    const demandTable = GameEngine.getDemandTable(numberOfGroups, 2);
+    const statusIcons = ['📈', '⚖️', '📉', '💀'];
+    const tierColors = ['var(--blue)', 'var(--green)', 'var(--orange)', 'var(--red)'];
+    document.getElementById('demandScheduleBody').innerHTML = demandTable.map((t, i) =>
+      `<tr>
+        <td style="padding:0.4rem 0.6rem; border-bottom:1px solid rgba(255,255,255,0.06);">${t.range}</td>
+        <td style="padding:0.4rem 0.6rem; border-bottom:1px solid rgba(255,255,255,0.06); font-weight:900; color:var(--gold); font-size:1.1rem;">$${t.price}</td>
+        <td style="padding:0.4rem 0.6rem; border-bottom:1px solid rgba(255,255,255,0.06); color:${tierColors[i]};">${statusIcons[i]} ${t.desc}</td>
+      </tr>`
+    ).join('');
+  }
 
   // Snapshot current capitals for delta
   const teamsSnap = await db.collection('game_sessions').doc(code).collection('teams').get();
@@ -349,6 +365,11 @@ function subscribeSession() {
     currentRound = s.current_round || 1;
 
     document.getElementById('progRoundLabel').textContent = `回合 ${currentRound} / ${GameEngine.MAX_ROUNDS}`;
+
+    // Update fixed price for Mode 1
+    if (gameMode === 1 && s.fixed_market_price) {
+      document.getElementById('displayFixedPrice').textContent = '$' + s.fixed_market_price;
+    }
 
     // Detect new events
     const newEvents = s.active_events || [];

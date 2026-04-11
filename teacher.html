@@ -17,6 +17,11 @@
     .session-actions { display:flex; gap:0.4rem; flex-wrap:wrap; }
     .back-link { cursor:pointer; color:var(--text-dim); font-size:0.85rem; padding:0.2rem 0.6rem; border-radius:4px; user-select:none; transition:background 0.15s; }
     .back-link:hover { color:var(--text); background:rgba(255,255,255,0.07); }
+    .mode-card { background:var(--bg-input); border:2px solid var(--border); border-radius:var(--radius-sm); padding:1rem; text-align:center; cursor:pointer; transition:border-color 0.2s, background 0.2s; }
+    .mode-card:hover { border-color:rgba(245,197,24,0.4); }
+    .mode-card.selected { border-color:var(--gold); background:rgba(245,197,24,0.08); }
+    .price-btn { min-width:52px; }
+    .price-btn.active { background:var(--gold) !important; color:#000 !important; border-color:var(--gold) !important; font-weight:700; }
   </style>
 </head>
 <body>
@@ -59,7 +64,7 @@
         <span>🎮 建立新課堂</span>
         <button class="btn btn-outline btn-sm" onclick="backToLobby()">← 返回</button>
       </div>
-      <p class="text-dim mb-2">設定參加組數並建立課堂。系統將自動產生課堂代碼。</p>
+      <p class="text-dim mb-2">選擇遊戲模式、設定參加組數，系統將自動產生課堂代碼。</p>
 
       <!-- Group Count Selector -->
       <div id="groupCountSection" class="mb-2" style="background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:var(--radius-sm); padding:1rem;">
@@ -71,6 +76,23 @@
           <span id="groupCountDisplay" style="font-size:1.8rem; font-weight:900; color:var(--gold); min-width:2.5rem; text-align:center;">5</span>
         </div>
         <div id="demandPreview" class="mt-1" style="font-size:0.82rem;"></div>
+      </div>
+
+      <!-- Mode Selector -->
+      <div id="modeSection" class="mb-2" style="background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:var(--radius-sm); padding:1rem;">
+        <label style="font-weight:600; display:block; margin-bottom:0.5rem;">🎯 遊戲模式</label>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem;">
+          <div id="modeCard1" class="mode-card selected" onclick="selectMode(1)">
+            <div style="font-size:1.5rem;">📊</div>
+            <div style="font-weight:700;">模式一：完全競爭</div>
+            <div style="font-size:0.78rem; color:var(--text-dim);">教師設定固定市價<br>學生練習 MC = P</div>
+          </div>
+          <div id="modeCard2" class="mode-card" onclick="selectMode(2)">
+            <div style="font-size:1.5rem;">⚔️</div>
+            <div style="font-weight:700;">模式二：寡頭博弈</div>
+            <div style="font-size:0.78rem; color:var(--text-dim);">全班供需定價<br>含避險合約+資訊雷達</div>
+          </div>
+        </div>
       </div>
 
       <button id="btnCreateSession" class="btn btn-primary btn-lg btn-block" onclick="createSession()">
@@ -127,9 +149,9 @@
           <div id="activeEventsDisplay" class="mt-2"></div>
         </div>
 
-        <!-- Demand Setting (Dynamic) -->
-        <div class="card">
-          <div class="card-header">📈 市場需求設定</div>
+        <!-- Demand Setting (Dynamic, Mode 2) -->
+        <div class="card" id="demandTableCard">
+          <div class="card-header">📈 市場需求設定 (互動模式)</div>
           <div class="flex items-center gap-2 mb-1">
             <label class="text-dim">參加組數 (N)：</label>
             <span id="demandNDisplay" style="font-size:1.3rem; font-weight:900; color:var(--gold);">5</span>
@@ -142,9 +164,18 @@
             </table>
           </div>
         </div>
-      </div>
 
-      <!-- ═══ RIGHT COLUMN: Monitor ═══ -->
+        <!-- Price Setter (Mode 1) -->
+        <div class="card hidden" id="priceSetterCard">
+          <div class="card-header">💰 設定市場價格 (Price Taker)</div>
+          <p class="text-dim mb-2" style="font-size:0.85rem;">開始本回合前，選擇學生面對的固定市價。</p>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;" id="pricePresets"></div>
+          <div class="mt-2" style="text-align:center;">
+            <span class="text-dim">本回合市價：</span>
+            <span id="fixedPriceDisplay" style="font-size:2.5rem; font-weight:900; color:var(--gold);">$20</span>
+          </div>
+        </div>
+      </div>
       <div class="flex flex-col gap-2">
 
         <!-- Live Monitor -->
@@ -199,6 +230,8 @@
     let timerInterval = null;
     let timerSeconds = GameEngine.DEFAULT_TIMER_SECONDS;
     let numberOfGroups = 5;
+    let gameMode = 1;
+    let fixedMarketPrice = 20;
     let unsubTeams = null;
     let unsubDecisions = null;
 
@@ -206,9 +239,34 @@
     function onGroupCountChange(val) {
       document.getElementById('groupCountDisplay').textContent = val;
       const n = parseInt(val);
-      const table = GameEngine.getDemandTable(n);
-      document.getElementById('demandPreview').innerHTML = `<span class="text-dim">需求階梯預覽：</span> ` +
-        table.map(t => `<span style="margin-right:0.6rem;">${t.range}件→$${t.price}</span>`).join('');
+      if (gameMode === 2) {
+        const table = GameEngine.getDemandTable(n, 2);
+        document.getElementById('demandPreview').innerHTML = `<span class="text-dim">需求階梯預覽：</span> ` +
+          table.map(t => `<span style="margin-right:0.6rem;">${t.range}件→$${t.price}</span>`).join('');
+      } else {
+        document.getElementById('demandPreview').innerHTML = `<span class="text-dim">模式一：教師每回合手動設定市價</span>`;
+      }
+    }
+
+    // ── Mode Selector ──
+    function selectMode(mode) {
+      gameMode = mode;
+      document.getElementById('modeCard1').classList.toggle('selected', mode === 1);
+      document.getElementById('modeCard2').classList.toggle('selected', mode === 2);
+      onGroupCountChange(document.getElementById('groupCountSlider').value);
+    }
+
+    function renderPricePresets() {
+      const prices = [10, 15, 20, 25, 30, 40, 50];
+      document.getElementById('pricePresets').innerHTML = prices.map(p =>
+        `<button class="btn btn-outline price-btn${p === fixedMarketPrice ? ' active' : ''}" onclick="setFixedPrice(${p})">$${p}</button>`
+      ).join('');
+    }
+
+    function setFixedPrice(p) {
+      fixedMarketPrice = p;
+      document.getElementById('fixedPriceDisplay').textContent = '$' + p;
+      renderPricePresets();
     }
 
     // ── Setup: Create Session ──
@@ -223,6 +281,8 @@
         current_round: 1,
         status: 'waiting',
         number_of_groups: numberOfGroups,
+        game_mode: gameMode,
+        fixed_market_price: gameMode === 1 ? fixedMarketPrice : null,
         active_events: [],
         created_at: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -244,6 +304,7 @@
       document.getElementById('sessionCreated').classList.remove('hidden');
       document.getElementById('btnCreateSession').classList.add('hidden');
       document.getElementById('groupCountSection').classList.add('hidden');
+      document.getElementById('modeSection').classList.add('hidden');
       document.getElementById('sessionCodeDisplay').textContent = '課堂: ' + code;
 
       // Listen for team connections
@@ -270,7 +331,15 @@
     // ── Start Game ──
     function startGame() {
       showPhaseUI('game');
-      updateDemandTableUI();
+      if (gameMode === 1) {
+        document.getElementById('demandTableCard').classList.add('hidden');
+        document.getElementById('priceSetterCard').classList.remove('hidden');
+        renderPricePresets();
+      } else {
+        document.getElementById('demandTableCard').classList.remove('hidden');
+        document.getElementById('priceSetterCard').classList.add('hidden');
+        updateDemandTableUI();
+      }
       renderEventCards();
       listenLiveMonitor();
       updateLeaderboard();
@@ -278,7 +347,7 @@
 
     function updateDemandTableUI() {
       document.getElementById('demandNDisplay').textContent = numberOfGroups;
-      const table = GameEngine.getDemandTable(numberOfGroups);
+      const table = GameEngine.getDemandTable(numberOfGroups, gameMode);
       document.getElementById('demandTableBody').innerHTML = table.map(t =>
         `<tr><td>${t.range}</td><td>$${t.price}</td><td>${t.desc}</td></tr>`
       ).join('');
@@ -286,9 +355,12 @@
 
     // ── Render Event Cards ──
     function renderEventCards() {
+      const locked = (gameStatus === 'in_progress' || gameStatus === 'clearing');
       let html = '';
       for (const evt of GameEngine.EVENTS) {
-        html += `<button class="btn btn-outline btn-sm" onclick="triggerEvent('${evt.event_id}')" id="evtBtn_${evt.event_id}">
+        const alreadyActive = activeEvents.find(e => e.event_id === evt.event_id);
+        const disabled = locked || alreadyActive ? 'disabled' : '';
+        html += `<button class="btn btn-outline btn-sm" onclick="triggerEvent('${evt.event_id}')" id="evtBtn_${evt.event_id}" ${disabled}>
           ${evt.icon} ${evt.name}
         </button>`;
       }
@@ -343,7 +415,7 @@
       gameStatus = 'in_progress';
       timerSeconds = GameEngine.DEFAULT_TIMER_SECONDS;
 
-      await db.collection('game_sessions').doc(sessionId).update({
+      const updateData = {
         status: 'in_progress',
         current_round: currentRound,
         active_events: activeEvents.map(e => ({
@@ -353,7 +425,12 @@
         timer_end: firebase.firestore.Timestamp.fromDate(
           new Date(Date.now() + timerSeconds * 1000)
         )
-      });
+      };
+      if (gameMode === 1) {
+        updateData.fixed_market_price = fixedMarketPrice;
+      }
+
+      await db.collection('game_sessions').doc(sessionId).update(updateData);
 
       // Clear previous round decisions
       const prevDecs = await db.collection('game_sessions').doc(sessionId)
@@ -369,6 +446,9 @@
       document.getElementById('btnNextRound').classList.add('hidden');
       document.getElementById('debriefingCard').classList.add('hidden');
       document.getElementById('timerArea').classList.remove('hidden');
+
+      // Lock event cards once round starts
+      renderEventCards();
       document.getElementById('statusBadge').className = 'badge badge-thinking';
       document.getElementById('statusBadge').textContent = '決策中';
 
@@ -432,17 +512,19 @@
       for (const team of activeTeams) {
         let q = 0;
         let items = [];
+        let hedgeQ = 0;
         decSnap.forEach(doc => {
           const d = doc.data();
           if (d.team_id === team.id) {
             q = d.quantity_q || 0;
             items = d.active_items || [];
+            hedgeQ = d.hedge_q || 0;
           }
         });
-        teamsData.push({ teamId: team.id, q, activeItems: items });
+        teamsData.push({ teamId: team.id, q, activeItems: items, hedgeQ });
       }
 
-      const result = GameEngine.clearRound(teamsData, activeEvents, numberOfGroups);
+      const result = GameEngine.clearRound(teamsData, activeEvents, numberOfGroups, gameMode, fixedMarketPrice);
 
       // Write results to Firestore and update capitals
       const batch = db.batch();
@@ -487,7 +569,9 @@
           below_shutdown: tr.belowShutdown,
           effective_fc: tr.effectiveFC,
           price_premium: tr.pricePremium,
-          mc: tr.mc
+          mc: tr.mc,
+          hedge_q: tr.hedgeQ || 0,
+          hedge_success: tr.hedgeSuccess || false
         });
       }
 
@@ -499,6 +583,7 @@
           total_supply: result.totalSupply,
           market_price: result.marketPrice,
           market_description: result.marketDescription,
+          game_mode: gameMode,
           team_results: result.teamResults
         }
       });
@@ -578,6 +663,7 @@
       document.getElementById('statusBadge').textContent = '等待中';
       document.getElementById('debriefingCard').classList.add('hidden');
       renderActiveEvents();
+      if (gameMode === 1) renderPricePresets();
 
       // Re-enable all event buttons
       for (const evt of GameEngine.EVENTS) {
@@ -735,6 +821,7 @@
           ? s.created_at.toDate().toLocaleDateString('zh-HK', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
           : '—';
         const nGroups = s.number_of_groups || 5;
+        const modeLabel = (s.game_mode === 2) ? '寡頭' : '完競';
         html += `
           <div class="session-row${isLocked ? ' locked-row' : ''}">
             <div class="session-code-big">${code}</div>
@@ -742,7 +829,7 @@
               <div style="display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center;">
                 ${badgeStatus} ${badgeLocked} ${badgeDone}
               </div>
-              <div class="sm-info">回合 ${round} / ${GameEngine.MAX_ROUNDS} ・ ${nGroups} 組 ・ ${dateStr}</div>
+              <div class="sm-info">回合 ${round} / ${GameEngine.MAX_ROUNDS} ・ ${nGroups} 組 ・ ${modeLabel} ・ ${dateStr}</div>
             </div>
             <div class="session-actions">
               <button class="btn btn-success btn-sm" onclick="resumeSession('${code}')">
@@ -774,6 +861,8 @@
       activeEvents  = session.active_events || [];
       sessionLocked = session.locked || false;
       numberOfGroups = session.number_of_groups || 5;
+      gameMode = session.game_mode || 1;
+      fixedMarketPrice = session.fixed_market_price || 20;
 
       document.getElementById('sessionCodeDisplay').textContent = '課堂: ' + code;
       document.getElementById('roundDisplay').textContent = '回合: ' + currentRound;
@@ -781,7 +870,15 @@
       document.getElementById('gameDoneNotice').classList.add('hidden');
 
       showPhaseUI('game');
-      updateDemandTableUI();
+      if (gameMode === 1) {
+        document.getElementById('demandTableCard').classList.add('hidden');
+        document.getElementById('priceSetterCard').classList.remove('hidden');
+        renderPricePresets();
+      } else {
+        document.getElementById('demandTableCard').classList.remove('hidden');
+        document.getElementById('priceSetterCard').classList.add('hidden');
+        updateDemandTableUI();
+      }
       renderEventCards();
       listenLiveMonitor();
       updateLeaderboard();
@@ -879,6 +976,10 @@
         </div>`;
       const teamResults = lastClearing.team_results;
       if (!teamResults) return;
+      const showHedge = (lastClearing.game_mode === 2);
+      let theadExtra = showHedge ? '<th>避險</th>' : '';
+      document.querySelector('#debriefingCard thead tr').innerHTML =
+        `<th>小組</th><th>Q</th><th>TR</th><th>TC</th><th>利潤</th><th>MC(Q)</th>${theadExtra}`;
       let tbody = '';
       const activeTeams = GameEngine.getTeams(numberOfGroups);
       for (const team of activeTeams) {
@@ -889,6 +990,8 @@
         const rowClass = isOver ? 'row-overproduction' : '';
         const mcDisplay = tr.mc !== null && tr.mc !== undefined ? `$${tr.mc}` : '—';
         const shutdownTag = isShutdown ? ' 💀' : '';
+        const hedgeTag = (showHedge && tr.hedgeSuccess) ? ' <span style="color:var(--green);font-weight:700;">[避險成功]</span>' : '';
+        const hedgeCell = showHedge ? `<td>${tr.hedgeQ > 0 ? tr.hedgeQ + '件' + hedgeTag : '—'}</td>` : '';
         tbody += `<tr class="${rowClass}">
           <td>${team.emoji} ${team.name}</td>
           <td>${tr.q}</td>
@@ -896,6 +999,7 @@
           <td>$${tr.tc}</td>
           <td style="font-weight:700; color:${tr.profit >= 0 ? 'var(--green)' : 'var(--red)'}">${tr.profit >= 0 ? '+' : ''}$${tr.profit}</td>
           <td>${mcDisplay}${shutdownTag} ${isOver ? '🔴' : ''}</td>
+          ${hedgeCell}
         </tr>`;
       }
       document.getElementById('debriefingBody').innerHTML = tbody;
