@@ -199,6 +199,33 @@ const GameEngine = {
   },
 
   /**
+   * Find the profit-maximizing Q given market price and cost structure.
+   * Reconstructs the VC modifier from actual vc/q data, then evaluates
+   * profit at each Q from 0–8 to find the optimum.
+   * Returns { optimalQ, maxProfit }.
+   */
+  getOptimalQ(marketPrice, fc, actualQ, actualVC) {
+    let vcModifier = 0;
+    if (actualQ > 0) {
+      const baseVC = this.getBaseVC(actualQ);
+      vcModifier = (actualVC - baseVC) / actualQ;
+    }
+    let bestQ = 0;
+    let bestProfit = -fc; // profit at Q=0
+    for (let q = 1; q <= 8; q++) {
+      const vc = this.getBaseVC(q) + q * vcModifier;
+      const tc = fc + Math.max(0, vc);
+      const tr = q * marketPrice;
+      const profit = tr - tc;
+      if (profit > bestProfit) {
+        bestProfit = profit;
+        bestQ = q;
+      }
+    }
+    return { optimalQ: bestQ, maxProfit: bestProfit };
+  },
+
+  /**
    * Run full clearing calculation for a round.
    * teamsData: array of { teamId, q, activeItems, hedgeQ }
    * mode: 1 (Price Taker) or 2 (Interactive Market)
