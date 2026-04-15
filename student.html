@@ -130,19 +130,12 @@
     }
     @keyframes ticker-scroll { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
 
-    /* ── Marginal Alert ── */
-    .marginal-alert {
-      background: rgba(83,168,245,0.07);
-      border: 1.5px solid rgba(83,168,245,0.3);
-      border-radius: var(--radius-sm);
-      padding: 0.7rem 1rem;
-      margin-top: 0.6rem;
-      margin-bottom: 0.6rem;
-      font-size: 0.85rem;
-      line-height: 1.7;
-      display: none;
+    /* ── Report modal responsive ── */
+    @media (max-width: 600px) {
+      #reportModal .modal-content > div[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+      }
     }
-    .marginal-alert.alert-warn { border-color: rgba(231,76,60,0.4); background: rgba(231,76,60,0.07); }
 
     /* ── Scratchpad ── */
     .scratchpad { margin-top: 0.6rem; }
@@ -189,13 +182,11 @@
 
     <button id="btnValidateCode" class="btn btn-outline btn-lg" onclick="validateCode()">🔍 查詢課堂</button>
 
-    <div id="groupSelectArea" class="hidden flex flex-col gap-2">
-      <p style="font-weight:600; font-size:0.9rem; margin-bottom:-0.3rem;">選擇組別</p>
-      <div id="groupSlots" style="display:flex; gap:0.45rem; flex-wrap:wrap;"></div>
-      <input type="hidden" id="selectTeam" value="">
-
-      <input type="text" id="inputNickname" maxlength="10" placeholder="自訂隊名（選填，例：霸總）"
-             style="font-size:1rem; text-align:center;">
+    <div id="teamNameArea" class="hidden flex flex-col gap-2">
+      <p style="font-weight:600; font-size:0.9rem; margin-bottom:-0.3rem;">輸入你的組別名稱</p>
+      <input type="text" id="inputTeamName" maxlength="12" placeholder="例：奶茶霸主、經濟小天才"
+             style="font-size:1.1rem; text-align:center; font-weight:700;">
+      <p class="text-dim" style="font-size:0.78rem; margin-top:-0.3rem;">如果你曾加入此課堂，輸入相同組名即可重新登入</p>
 
       <button class="btn btn-primary btn-lg" onclick="joinSession()">加入遊戲 →</button>
     </div>
@@ -337,8 +328,7 @@
         <div class="slider-value" id="qDisplay">0</div>
       </div>
 
-      <!-- Dynamic Marginal Alert -->
-      <div id="marginalAlert" class="marginal-alert"></div>
+
 
       <!-- Scratchpad (collapsible) -->
       <details class="scratchpad" id="scratchpadBlock">
@@ -381,68 +371,95 @@
      PHASE 3 — Post-Round Report Modal
 ══════════════════════════════════════ -->
 <div id="reportModal" class="modal-overlay hidden">
-  <div class="modal-content animate-slide-up" style="max-width:440px;">
-    <div style="font-size:2.5rem; margin-bottom:0.5rem;">📊</div>
-    <h2 style="margin-bottom:0.2rem;">第 <span id="rptRound">—</span> 期 損益表</h2>
-    <p class="text-dim" style="font-size:0.82rem; margin-bottom:1rem;">Income Statement</p>
-
-    <table class="income-stmt">
-      <tbody>
-        <tr>
-          <td class="is-label">營業額 (Revenue)</td>
-          <td class="is-val text-blue" id="rptTR">—</td>
-        </tr>
-        <tr class="is-deduct">
-          <td class="is-label">廠房租金 (Rent)</td>
-          <td class="is-val" id="rptRent" style="color:var(--red);">—</td>
-        </tr>
-        <tr class="is-deduct">
-          <td class="is-label">工資支出 (Payroll)</td>
-          <td class="is-val" id="rptPayroll" style="color:var(--red);">—</td>
-        </tr>
-        <tr class="hidden" id="hedgeReportRow">
-          <td class="is-label">🛡️ 避險合約</td>
-          <td class="is-val"><span id="rptHedge">—</span><span id="hedgeSuccessTag" class="hidden" style="color:var(--green); font-weight:700; margin-left:0.4rem;">✅</span></td>
-        </tr>
-        <tr class="is-total">
-          <td style="font-weight:900;">本期淨利潤 (Net Profit)</td>
-          <td class="is-val" id="rptProfit" style="font-size:1.3rem;">—</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="report-row" style="margin-top:0.6rem; border-top:1px solid var(--border); padding-top:0.6rem;">
-      <span class="r-label">產量 (Q)</span>
-      <span class="r-val" id="rptTP">—</span>
-    </div>
-    <div class="report-row">
-      <span class="r-label">最終售價</span>
-      <span class="r-val text-gold" id="rptPrice">—</span>
-    </div>
-    <div class="report-row">
-      <span class="r-label">更新後公司資金</span>
-      <span class="r-val text-gold" id="rptNewCapital">—</span>
+  <div class="modal-content animate-slide-up" style="max-width:780px;">
+    <div style="text-align:center;">
+      <div style="font-size:2rem; margin-bottom:0.3rem;">📊</div>
+      <h2 style="margin-bottom:0.1rem; font-size:1.3rem;">第 <span id="rptRound">—</span> 期 損益表</h2>
+      <p class="text-dim" style="font-size:0.78rem; margin-bottom:0.8rem;">Income Statement</p>
     </div>
 
-    <!-- AI Commentary -->
-    <div id="aiComment" class="ai-comment hidden">
-      <div class="ai-comment-title">🤖 AI 營運顧問點評</div>
-      <p id="aiCommentText"></p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; align-items:start;">
+      <!-- LEFT: Financial Data -->
+      <div>
+        <table class="income-stmt" style="width:100%;">
+          <tbody>
+            <tr>
+              <td class="is-label">營業額 (Revenue)</td>
+              <td class="is-val text-blue" id="rptTR">—</td>
+            </tr>
+            <tr class="is-deduct">
+              <td class="is-label">廠房租金 (Rent)</td>
+              <td class="is-val" id="rptRent" style="color:var(--red);">—</td>
+            </tr>
+            <tr class="is-deduct">
+              <td class="is-label">工資支出 (Payroll)</td>
+              <td class="is-val" id="rptPayroll" style="color:var(--red);">—</td>
+            </tr>
+            <tr class="hidden" id="hedgeReportRow">
+              <td class="is-label">🛡️ 避險合約</td>
+              <td class="is-val"><span id="rptHedge">—</span><span id="hedgeSuccessTag" class="hidden" style="color:var(--green); font-weight:700; margin-left:0.4rem;">✅</span></td>
+            </tr>
+            <tr class="is-total">
+              <td style="font-weight:900;">本期淨利潤</td>
+              <td class="is-val" id="rptProfit" style="font-size:1.3rem;">—</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="report-row" style="margin-top:0.5rem; border-top:1px solid var(--border); padding-top:0.5rem;">
+          <span class="r-label">產量 (Q)</span>
+          <span class="r-val" id="rptTP">—</span>
+        </div>
+        <div class="report-row">
+          <span class="r-label">最終售價</span>
+          <span class="r-val text-gold" id="rptPrice">—</span>
+        </div>
+        <div class="report-row">
+          <span class="r-label">更新後公司資金</span>
+          <span class="r-val text-gold" id="rptNewCapital">—</span>
+        </div>
+      </div>
+
+      <!-- RIGHT: Commentary + Warnings -->
+      <div>
+        <div id="aiComment" class="ai-comment hidden" style="margin-top:0;">
+          <div class="ai-comment-title">🤖 營運顧問點評</div>
+          <p id="aiCommentText"></p>
+        </div>
+
+        <div id="shutdownWarning" class="shutdown-warning hidden">
+          <div class="skull">💀</div>
+          <p style="font-weight:700; color:var(--red);">跌穿停產點！</p>
+          <p style="font-size:0.85rem; color:var(--text-dim); margin-top:0.3rem;">
+            你的營業額 (TR) 低於工資支出 (TVC)！<br>
+            在此情況下，停止生產 (Q=0) 反而損失更少。
+          </p>
+        </div>
+      </div>
     </div>
 
-    <!-- Shutdown Warning -->
-    <div id="shutdownWarning" class="shutdown-warning hidden">
-      <div class="skull">💀</div>
-      <p style="font-weight:700; color:var(--red);">跌穿停產點！</p>
-      <p style="font-size:0.85rem; color:var(--text-dim); margin-top:0.3rem;">
-        你的營業額 (TR) 低於工資支出 (TVC)！<br>
-        在此情況下，停止生產 (Q=0) 反而損失更少。
-      </p>
+    <!-- Game Over footer (last round only) -->
+    <div id="reportGameOver" class="hidden" style="margin-top:1.2rem; text-align:center; border-top:1px solid var(--border); padding-top:1rem;">
+      <p style="font-size:1rem; font-weight:700; color:var(--green); margin-bottom:0.6rem;">🏁 遊戲結束！</p>
+      <button class="btn btn-gold" onclick="loadStudentDataReview()">📊 查看完整數據回顧</button>
     </div>
 
-    <button class="btn btn-primary btn-lg btn-block mt-3" onclick="closeReport()">
-      繼續 →
-    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PHASE 4 — Data Review (released by teacher)
+══════════════════════════════════════ -->
+<div id="phaseDataReview" class="hidden">
+  <div class="container" style="max-width:850px; margin-top:1rem;">
+    <div class="card animate-slide-up">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>📊 回合數據總覽</span>
+        <button id="btnDownloadPDF" class="btn btn-sm" style="background:rgba(83,168,245,0.15); border:1px solid var(--blue); color:var(--blue);">📥 下載 PDF</button>
+      </div>
+      <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1rem;" id="studentDataMenu"></div>
+      <div id="studentDataContent" style="overflow-x:auto;"></div>
+    </div>
   </div>
 </div>
 
@@ -451,6 +468,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/game-engine.js"></script>
+<!-- PDF generation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
 
 <script>
 // ── State ──
@@ -468,47 +488,22 @@ let unsubSession     = null;
 let unsubTeam        = null;
 let unsubRadar       = null;
 let gameMode         = 1;
-let sessionTeams     = [];  // dynamic teams for this session
 
-// ── Group Slot Buttons (dynamic based on session N) ──
-function renderGroupSlots(teams) {
-  const container = document.getElementById('groupSlots');
-  sessionTeams = teams;
-  container.innerHTML = teams.map(t =>
-    `<button type="button" class="btn btn-outline btn-sm" id="slot_${t.id}"
-       style="flex:1; min-width:50px; font-size:0.9rem; padding:0.5rem 0;"
-       onclick="pickSlot('${t.id}')">
-       ${t.emoji} ${t.name.replace('Group ','')}</button>`
-  ).join('');
-}
+// ── Group Slot Buttons — REMOVED (dynamic join by name) ──
 
-function pickSlot(id) {
-  document.getElementById('selectTeam').value = id;
-  for (const t of sessionTeams) {
-    const btn = document.getElementById('slot_' + t.id);
-    if (t.id === id) { btn.style.borderColor = 'var(--gold)'; btn.style.background = 'rgba(245,197,24,0.12)'; btn.style.color = 'var(--gold)'; }
-    else { btn.style.borderColor = ''; btn.style.background = ''; btn.style.color = ''; }
-  }
-  document.getElementById('joinError').classList.add('hidden');
-}
-
-// Validate code and load group slots dynamically
+// Validate code and show team name input
 async function validateCode() {
   const code = document.getElementById('inputCode').value.trim();
   if (!code || code.length !== 4) { return showJoinError('請輸入 4 位數課堂代碼'); }
   const sessionDoc = await db.collection('game_sessions').doc(code).get();
   if (!sessionDoc.exists) { return showJoinError('找不到該課堂代碼，請確認後重試'); }
   const session = sessionDoc.data();
-  numberOfGroups = session.number_of_groups || 5;
   gameMode = session.game_mode || 1;
-  const teams = GameEngine.getTeams(numberOfGroups);
-  renderGroupSlots(teams);
-  // Show the group selection area
-  document.getElementById('groupSelectArea').classList.remove('hidden');
+  // Show team name input
+  document.getElementById('teamNameArea').classList.remove('hidden');
   document.getElementById('btnValidateCode').classList.add('hidden');
   document.getElementById('inputCode').readOnly = true;
-  // Update demand hint
-  updateDemandHint();
+  document.getElementById('inputTeamName').focus();
 }
 
 function updateDemandHint() {
@@ -528,22 +523,51 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── Join Session ──
 async function joinSession() {
   const code = document.getElementById('inputCode').value.trim();
-  const team = document.getElementById('selectTeam').value;
-  const nickname = document.getElementById('inputNickname').value.trim();
+  const teamName = document.getElementById('inputTeamName').value.trim();
 
   if (!code || code.length !== 4) { return showJoinError('請輸入 4 位數課堂代碼'); }
-  if (!team) { return showJoinError('請先選擇組別'); }
+  if (!teamName) { return showJoinError('請輸入組別名稱'); }
 
   sessionId = code;
-  teamId    = team;
 
-  // Build display name: "Group A" or "Group A: 霸總"
-  const base = sessionTeams.find(t => t.id === team);
-  const displayName = nickname ? `${base.name}: ${nickname}` : base.name;
+  // Check if a team with this name already exists (rejoin)
+  const teamsSnap = await db.collection('game_sessions').doc(sessionId)
+    .collection('teams').get();
 
-  // Mark team as connected + update custom name
-  await db.collection('game_sessions').doc(sessionId)
-    .collection('teams').doc(teamId).update({ connected: true, name: displayName });
+  let existingTeam = null;
+  let usedSlotCount = 0;
+  teamsSnap.forEach(doc => {
+    usedSlotCount++;
+    const t = doc.data();
+    if (t.custom_name === teamName) {
+      existingTeam = { id: doc.id, ...t };
+    }
+  });
+
+  if (existingTeam) {
+    // Rejoin existing team
+    teamId = existingTeam.id;
+    await db.collection('game_sessions').doc(sessionId)
+      .collection('teams').doc(teamId).update({ connected: true });
+  } else {
+    // Create new team — assign next available slot from ALL_TEAMS
+    if (usedSlotCount >= GameEngine.ALL_TEAMS.length) {
+      return showJoinError('課堂已滿（最多 ' + GameEngine.ALL_TEAMS.length + ' 組）');
+    }
+    const slot = GameEngine.ALL_TEAMS[usedSlotCount];
+    teamId = slot.id;
+
+    await db.collection('game_sessions').doc(sessionId)
+      .collection('teams').doc(teamId).set({
+        team_id: teamId,
+        name: teamName,
+        custom_name: teamName,
+        emoji: slot.emoji,
+        total_capital: 200,
+        active_items: [],
+        connected: true
+      });
+  }
 
   // Load team data
   const teamDoc = await db.collection('game_sessions').doc(sessionId)
@@ -571,6 +595,7 @@ function subscribeSession() {
       currentRound  = session.current_round || 1;
       activeEvents  = (session.active_events || []);
       gameMode      = session.game_mode || 1;
+      if (session.number_of_groups) numberOfGroups = session.number_of_groups;
 
       // Update fixed price for Mode 1
       if (gameMode === 1 && session.fixed_market_price) {
@@ -589,14 +614,19 @@ function subscribeSession() {
 
       switch (session.status) {
         case 'waiting':
+          // Auto-dismiss report modal if visible (teacher started next round)
+          document.getElementById('reportModal').classList.add('hidden');
           submitted = false;
           activeItems = [];
           roundPhaseStarted = false;
+          if (unsubRadar) { unsubRadar(); unsubRadar = null; }
           showPhase('waiting');
           setWaitingMsg('⏳', '等待教師開始新一期…', '請準備好紙筆，計算生產成本');
           break;
 
         case 'in_progress':
+          // Auto-dismiss report modal if visible
+          document.getElementById('reportModal').classList.add('hidden');
           if (submitted) {
             showPhase('waiting');
             setWaitingMsg('✅', '生產指令已提交！', '等待其他公司提交，即將結算…');
@@ -627,6 +657,12 @@ function subscribeSession() {
           loadAndShowReport();
           break;
       }
+
+      // Check if teacher released data (shown as a new phase option)
+      if (session.data_released && session.status === 'results' && currentRound >= GameEngine.MAX_ROUNDS) {
+        document.getElementById('reportModal').classList.add('hidden');
+        loadStudentDataReview();
+      }
     });
 }
 
@@ -651,6 +687,7 @@ function showPhase(phase) {
   document.getElementById('phaseJoin').classList.add('hidden');
   document.getElementById('phaseWaiting').classList.add('hidden');
   document.getElementById('phaseDecision').classList.add('hidden');
+  document.getElementById('phaseDataReview').classList.add('hidden');
 
   if (phase === 'join')     document.getElementById('phaseJoin').classList.remove('hidden');
   if (phase === 'waiting')  document.getElementById('phaseWaiting').classList.remove('hidden');
@@ -681,6 +718,7 @@ function showPhase(phase) {
     updateDecisionStats();
     unlockDecisionForm();
   }
+  if (phase === 'dataReview') document.getElementById('phaseDataReview').classList.remove('hidden');
 }
 
 function setWaitingMsg(icon, msg, sub) {
@@ -778,29 +816,7 @@ function updateDecisionStats() {
     }
   }
 
-  // Dynamic Marginal Alert
-  const alertEl = document.getElementById('marginalAlert');
-  if (alertEl) {
-    if (q > 0) {
-      const mc = GameEngine.getEffectiveMC(q, activeEvents, activeItems);
-      let mrText = '';
-      let isWarn = false;
-      if (gameMode === 1) {
-        const fp = parseInt((document.getElementById('fixedPriceValue')?.textContent || '$20').replace('$','')) || 20;
-        mrText = `營業額將增加 $${fp} (即MR)`;
-        isWarn = (mc > fp);
-      } else {
-        mrText = `營業額增加取決於最終售價 (MR=售價)`;
-        isWarn = false;
-      }
-      alertEl.innerHTML = `<span style="font-weight:700;">${isWarn ? '⚠️' : '💡'} 第 ${q} 件：</span>增加這 1 件產量，<strong style="color:var(--accent);">總成本增加 $${mc}</strong> (即MC)，而<strong style="color:var(--blue);">${mrText}</strong>。`
-        + (isWarn ? `<br><span style="color:var(--red); font-weight:600;">⚠ MC > 售價，增產將令利潤減少！</span>` : '');
-      alertEl.style.display = 'block';
-      alertEl.className = 'marginal-alert' + (isWarn ? ' alert-warn' : '');
-    } else {
-      alertEl.style.display = 'none';
-    }
-  }
+
 
   // Scratchpad Table
   renderScratchpad(q, effFC, vcMod);
@@ -975,8 +991,10 @@ async function loadAndShowReport() {
   document.getElementById('rptTR').textContent       = '$' + r.tr;
 
   // Income Statement: Rent (FC) and Payroll (TVC)
-  document.getElementById('rptRent').textContent     = '-$' + r.effectiveFC;
-  document.getElementById('rptPayroll').textContent  = '-$' + r.vc;
+  const effectiveFC = r.effective_fc !== undefined ? r.effective_fc : r.effectiveFC;
+  const vc = r.vc !== undefined ? r.vc : (r.tc - (effectiveFC || 0));
+  document.getElementById('rptRent').textContent     = '-$' + effectiveFC;
+  document.getElementById('rptPayroll').textContent  = '-$' + vc;
 
   // Hedging info
   const hedgeRow = document.getElementById('hedgeReportRow');
@@ -1039,18 +1057,19 @@ async function loadAndShowReport() {
     }
   }
 
+  // Game-over footer on last round
+  const gameOverFooter = document.getElementById('reportGameOver');
+  if (gameOverFooter) {
+    if (currentRound >= GameEngine.MAX_ROUNDS) {
+      gameOverFooter.classList.remove('hidden');
+    } else {
+      gameOverFooter.classList.add('hidden');
+    }
+  }
+
   document.getElementById('reportModal').classList.remove('hidden');
 }
 
-function closeReport() {
-  document.getElementById('reportModal').classList.add('hidden');
-  submitted        = false;
-  activeItems      = [];
-  roundPhaseStarted = false;
-  if (unsubRadar) { unsubRadar(); unsubRadar = null; }
-  showPhase('waiting');
-  setWaitingMsg('⏳', '等待教師開始下一期…', '準備好紙筆，計算下一期的生產成本');
-}
 
 // ── Radar Subscription (Mode 2) ──
 function subscribeRadar() {
@@ -1079,6 +1098,341 @@ function subscribeRadar() {
       indicator.style.color = textColor;
       indicator.textContent = `${icon} 若維持此產量 → 預測市價 $${tier.price} (${tier.description})`;
     });
+}
+
+// ── Student Data Review ──
+let studentDataCache = null;
+let studentSelectedView = null;
+
+async function loadStudentDataReview() {
+  document.getElementById('reportModal').classList.add('hidden');
+  showPhase('dataReview');
+  const content = document.getElementById('studentDataContent');
+  content.innerHTML = `<p class="text-center" style="padding:2rem; color:var(--text-dim);">載入中…</p>`;
+
+  try {
+    const snap = await db.collection('game_sessions').doc(sessionId)
+      .collection('round_results').get();
+
+    studentDataCache = {};
+    snap.forEach(doc => {
+      const r = doc.data();
+      if (!studentDataCache[r.team_id]) studentDataCache[r.team_id] = [];
+      studentDataCache[r.team_id].push(r);
+    });
+    for (const tid in studentDataCache) {
+      studentDataCache[tid].sort((a, b) => (a.round_number || 0) - (b.round_number || 0));
+    }
+
+    // Also load team names
+    const teamsSnap = await db.collection('game_sessions').doc(sessionId)
+      .collection('teams').get();
+    const teamNames = {};
+    teamsSnap.forEach(doc => {
+      const t = doc.data();
+      teamNames[doc.id] = { name: t.name || t.custom_name || doc.id, emoji: t.emoji || '🟤' };
+    });
+
+    // Build menu: own team first, then overall
+    const teams = GameEngine.getTeams(numberOfGroups);
+    let menuHtml = '';
+    if (teamId) {
+      const tn = teamNames[teamId] || { name: teamId, emoji: '🟤' };
+      menuHtml += `<button class="btn btn-outline btn-sm" id="stuDataBtn_${teamId}" onclick="selectStudentDataView('${teamId}')">${tn.emoji} ${tn.name}（本組）</button>`;
+    }
+    menuHtml += `<button class="btn btn-outline btn-sm" id="stuDataBtn_overall" onclick="selectStudentDataView('overall')">📋 整體記錄</button>`;
+    document.getElementById('studentDataMenu').innerHTML = menuHtml;
+
+    // Store team names for rendering
+    window._studentTeamNames = teamNames;
+
+    // Auto-select own team
+    selectStudentDataView(teamId || 'overall');
+  } catch (err) {
+    console.error('loadStudentDataReview error:', err);
+    content.innerHTML = `<p style="color:var(--red); padding:1rem;">載入數據失敗：${err.message}</p>`;
+  }
+}
+
+function selectStudentDataView(viewId) {
+  studentSelectedView = viewId;
+
+  // Update menu styling
+  document.querySelectorAll('[id^="stuDataBtn_"]').forEach(btn => {
+    if (btn.id === 'stuDataBtn_' + viewId) {
+      btn.style.borderColor = 'var(--gold)';
+      btn.style.background = 'rgba(245,197,24,0.12)';
+      btn.style.color = 'var(--gold)';
+    } else {
+      btn.style.borderColor = '';
+      btn.style.background = '';
+      btn.style.color = '';
+    }
+  });
+
+  if (viewId === 'overall') {
+    renderStudentOverallSummary();
+  } else {
+    renderStudentTeamData(viewId);
+  }
+}
+
+function renderStudentTeamData(tid) {
+  const content = document.getElementById('studentDataContent');
+  const rounds = studentDataCache[tid] || [];
+  const tn = window._studentTeamNames?.[tid] || { name: tid, emoji: '🟤' };
+
+  if (rounds.length === 0) {
+    content.innerHTML = `<p class="text-center" style="padding:2rem; color:var(--text);">尚無回合數據</p>`;
+    return;
+  }
+
+  let cumCapital = 200;
+  let optimalCount = 0;
+  const roundRows = rounds.map(r => {
+    const fc = r.effective_fc !== undefined ? r.effective_fc : GameEngine.DEFAULT_FC;
+    const vc = r.vc !== undefined ? r.vc : (r.tc - fc);
+    cumCapital += r.profit;
+    const { optimalQ } = GameEngine.getOptimalQ(r.market_price, fc, r.q, vc);
+    const isOptimal = (r.q === optimalQ);
+    if (isOptimal) optimalCount++;
+    return { round: r.round_number, price: r.market_price, q: r.q, fc, vc, tc: r.tc, tr: r.tr, profit: r.profit, mc: r.mc, cumCapital, optimalQ, isOptimal, belowShutdown: r.below_shutdown };
+  });
+
+  const score = Math.round((optimalCount / roundRows.length) * 100);
+  const scoreColor = score >= 80 ? '#4ecca3' : score >= 50 ? '#f5c518' : '#e74c3c';
+  const scoreLabel = score >= 80 ? '🔥 營商之鬼' : score >= 50 ? '📈 穩步上揚' : '⚠️ 仍需努力';
+
+  let html = `
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:0.8rem; gap:0.8rem;">
+      <div>
+        <span style="font-size:1.2rem; font-weight:900;">${tn.emoji} ${tn.name}</span>
+        <span class="text-dim" style="margin-left:0.5rem;">累積資金：</span>
+        <span style="font-size:1.1rem; font-weight:900; color:var(--gold);">$${roundRows[roundRows.length-1].cumCapital}</span>
+      </div>
+      <div style="background:rgba(0,0,0,0.3); border:2px solid ${scoreColor}; border-radius:var(--radius); padding:0.5rem 1rem; text-align:center; min-width:140px;">
+        <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase;">營商之鬼指數</div>
+        <div style="font-size:1.8rem; font-weight:900; color:${scoreColor}; line-height:1.1;">${score}%</div>
+        <div style="font-size:0.75rem; font-weight:700; color:${scoreColor};">${scoreLabel}</div>
+        <div style="font-size:0.68rem; color:var(--text-dim);">達標 ${optimalCount}/${roundRows.length} 回合</div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+    <table class="data-table" style="width:100%; font-size:0.82rem;">
+      <thead><tr>
+        <th>回合</th><th>市價</th><th>Q</th><th>Q*</th><th>FC</th><th>VC</th><th>TC</th><th>TR</th><th>MC</th><th>利潤</th><th>累積</th><th>備註</th>
+      </tr></thead><tbody>`;
+
+  for (const row of roundRows) {
+    const profitColor = row.profit >= 0 ? 'var(--green)' : 'var(--red)';
+    const profitSign = row.profit >= 0 ? '+' : '';
+    const mcText = row.mc !== null && row.mc !== undefined ? '$' + row.mc : '—';
+    let notes = [];
+    if (row.isOptimal) notes.push('<span style="color:#4ecca3;">✅</span>');
+    else if (row.q > row.optimalQ) notes.push('<span style="color:#e74c3c;">🔴 過度生產</span>');
+    else if (row.q < row.optimalQ && row.q > 0) notes.push('<span style="color:#53a8f5;">🔵 產量不足</span>');
+    else if (row.q === 0 && row.optimalQ > 0) notes.push('<span style="color:#ff8c42;">⚪ 未生產</span>');
+    else if (row.q === 0 && row.optimalQ === 0) notes.push('<span style="color:#4ecca3;">✅ 停產</span>');
+    if (row.belowShutdown) notes.push('<span style="color:#e74c3c;">💀</span>');
+    const optQStyle = row.isOptimal ? 'color:#4ecca3;font-weight:900;' : 'color:var(--text-dim);';
+    html += `<tr>
+      <td style="text-align:center; font-weight:700;">${row.round}</td>
+      <td style="text-align:center; color:var(--gold);">$${row.price}</td>
+      <td style="text-align:center; font-weight:700;">${row.q}</td>
+      <td style="text-align:center; ${optQStyle}">${row.optimalQ}</td>
+      <td style="text-align:center;">$${row.fc}</td>
+      <td style="text-align:center;">$${row.vc}</td>
+      <td style="text-align:center;">$${row.tc}</td>
+      <td style="text-align:center; color:var(--blue);">$${row.tr}</td>
+      <td style="text-align:center;">${mcText}</td>
+      <td style="text-align:center; font-weight:700; color:${profitColor};">${profitSign}$${row.profit}</td>
+      <td style="text-align:center; font-weight:700; color:var(--gold);">$${row.cumCapital}</td>
+      <td style="font-size:0.75rem;">${notes.join(' ')}</td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+
+  // Cost reference
+  html += `
+    <div style="margin-top:0.8rem; padding:0.6rem 0.8rem; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:var(--radius-sm);">
+      <div style="font-weight:700; font-size:0.8rem; margin-bottom:0.4rem;">📋 成本結構參考表</div>
+      <table class="data-table" style="width:100%; font-size:0.78rem;">
+        <thead><tr><th>Q</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:600;">VC</td>${GameEngine.Q_TABLE.map(r => `<td style="text-align:center;">$${r.vc}</td>`).join('')}</tr>
+          <tr><td style="font-weight:600;">MC</td>${GameEngine.Q_TABLE.map(r => `<td style="text-align:center;">${r.mc !== null ? '$'+r.mc : '—'}</td>`).join('')}</tr>
+        </tbody>
+      </table>
+    </div>`;
+
+  content.innerHTML = html;
+}
+
+function renderStudentOverallSummary() {
+  const content = document.getElementById('studentDataContent');
+  const teams = GameEngine.getTeams(numberOfGroups);
+  const teamNames = window._studentTeamNames || {};
+
+  if (!studentDataCache || Object.keys(studentDataCache).length === 0) {
+    content.innerHTML = `<p class="text-center" style="padding:2rem; color:var(--text);">尚無回合數據</p>`;
+    return;
+  }
+
+  const allRoundNums = new Set();
+  for (const tid in studentDataCache) {
+    studentDataCache[tid].forEach(r => allRoundNums.add(r.round_number));
+  }
+  const rounds = [...allRoundNums].sort((a, b) => a - b);
+
+  let html = `<div style="font-size:1rem; font-weight:900; margin-bottom:0.6rem;">📋 所有小組各回合表現</div>`;
+
+  for (const roundNum of rounds) {
+    html += `<div style="margin-bottom:1rem;">
+      <div style="font-weight:700; font-size:0.88rem; margin-bottom:0.3rem; color:var(--gold);">第 ${roundNum} 回合</div>
+      <div style="overflow-x:auto;">
+      <table class="data-table" style="width:100%; font-size:0.78rem;">
+        <thead><tr>
+          <th>小組</th><th>市價</th><th>Q</th><th>Q*</th><th>FC</th><th>VC</th><th>TC</th><th>TR</th><th>MC</th><th>利潤</th><th>備註</th>
+        </tr></thead><tbody>`;
+    for (const t of teams) {
+      const tn = teamNames[t.id] || { name: t.id, emoji: '🟤' };
+      const rData = (studentDataCache[t.id] || []).find(r => r.round_number === roundNum);
+      if (!rData) {
+        html += `<tr><td>${tn.emoji} ${tn.name}</td><td colspan="10" style="text-align:center; color:var(--text-dim);">—</td></tr>`;
+        continue;
+      }
+      const fc = rData.effective_fc !== undefined ? rData.effective_fc : GameEngine.DEFAULT_FC;
+      const vc = rData.vc !== undefined ? rData.vc : (rData.tc - fc);
+      const { optimalQ } = GameEngine.getOptimalQ(rData.market_price, fc, rData.q, vc);
+      const isOptimal = (rData.q === optimalQ);
+      const profitColor = rData.profit >= 0 ? 'var(--green)' : 'var(--red)';
+      const profitSign = rData.profit >= 0 ? '+' : '';
+      const mcText = rData.mc !== null && rData.mc !== undefined ? '$' + rData.mc : '—';
+      let notes = [];
+      if (isOptimal) notes.push('<span style="color:#4ecca3;">✅</span>');
+      else if (rData.q > optimalQ) notes.push('<span style="color:#e74c3c;">🔴</span>');
+      else if (rData.q < optimalQ && rData.q > 0) notes.push('<span style="color:#53a8f5;">🔵</span>');
+      else if (rData.q === 0 && optimalQ > 0) notes.push('<span style="color:#ff8c42;">⚪</span>');
+      else if (rData.q === 0 && optimalQ === 0) notes.push('<span style="color:#4ecca3;">✅</span>');
+      if (rData.below_shutdown) notes.push('<span style="color:#e74c3c;">💀</span>');
+      const optQStyle = isOptimal ? 'color:#4ecca3;font-weight:900;' : 'color:var(--text-dim);';
+      const isMe = t.id === teamId;
+      const rowStyle = isMe ? 'background:rgba(245,197,24,0.08);' : '';
+      html += `<tr style="${rowStyle}">
+        <td style="font-weight:700;">${tn.emoji} ${tn.name}${isMe ? ' ⭐' : ''}</td>
+        <td style="text-align:center; color:var(--gold);">$${rData.market_price}</td>
+        <td style="text-align:center; font-weight:700;">${rData.q}</td>
+        <td style="text-align:center; ${optQStyle}">${optimalQ}</td>
+        <td style="text-align:center;">$${fc}</td>
+        <td style="text-align:center;">$${vc}</td>
+        <td style="text-align:center;">$${rData.tc}</td>
+        <td style="text-align:center; color:var(--blue);">$${rData.tr}</td>
+        <td style="text-align:center;">${mcText}</td>
+        <td style="text-align:center; font-weight:700; color:${profitColor};">${profitSign}$${rData.profit}</td>
+        <td style="font-size:0.75rem;">${notes.join(' ')}</td>
+      </tr>`;
+    }
+    html += `</tbody></table></div></div>`;
+  }
+
+  // Ranking
+  html += `<div style="margin-top:0.8rem; padding:0.6rem 0.8rem; background:rgba(245,197,24,0.06); border:1px solid rgba(245,197,24,0.2); border-radius:var(--radius-sm);">
+    <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.4rem;">🏆 營商之鬼指數排行</div>
+    <table class="data-table" style="width:100%; font-size:0.8rem;">
+      <thead><tr><th>排名</th><th>小組</th><th>達標</th><th>指數</th></tr></thead>
+      <tbody>`;
+  const rankings = teams.map(t => {
+    const tn = teamNames[t.id] || { name: t.id, emoji: '🟤' };
+    const tRounds = studentDataCache[t.id] || [];
+    let optimal = 0;
+    tRounds.forEach(r => {
+      const fc = r.effective_fc !== undefined ? r.effective_fc : GameEngine.DEFAULT_FC;
+      const vc = r.vc !== undefined ? r.vc : (r.tc - fc);
+      const { optimalQ } = GameEngine.getOptimalQ(r.market_price, fc, r.q, vc);
+      if (r.q === optimalQ) optimal++;
+    });
+    const score = tRounds.length > 0 ? Math.round((optimal / tRounds.length) * 100) : 0;
+    return { ...tn, id: t.id, optimal, total: tRounds.length, score };
+  }).sort((a, b) => b.score - a.score);
+
+  const medals = ['🥇', '🥈', '🥉'];
+  rankings.forEach((r, i) => {
+    const scoreColor = r.score >= 80 ? '#4ecca3' : r.score >= 50 ? '#f5c518' : '#e74c3c';
+    const isMe = r.id === teamId;
+    const rowStyle = isMe ? 'background:rgba(245,197,24,0.08);' : '';
+    html += `<tr style="${rowStyle}">
+      <td style="text-align:center; font-weight:700;">${medals[i] || (i + 1)}</td>
+      <td style="font-weight:700;">${r.emoji} ${r.name}${isMe ? ' ⭐' : ''}</td>
+      <td style="text-align:center;">${r.optimal}/${r.total}</td>
+      <td style="text-align:center; font-weight:900; color:${scoreColor};">${r.score}%</td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  content.innerHTML = html;
+}
+
+// ── PDF Download ──
+document.addEventListener('DOMContentLoaded', () => {
+  const pdfBtn = document.getElementById('btnDownloadPDF');
+  if (pdfBtn) pdfBtn.addEventListener('click', downloadDataPDF);
+});
+
+async function downloadDataPDF() {
+  const btn = document.getElementById('btnDownloadPDF');
+  btn.disabled = true;
+  btn.textContent = '⏳ 生成中…';
+
+  try {
+    const el = document.getElementById('studentDataContent');
+    const canvas = await html2canvas(el, {
+      backgroundColor: '#1a1a2e',
+      scale: 2,
+      useCORS: true
+    });
+
+    const { jsPDF } = window.jspdf;
+    const imgData = canvas.toDataURL('image/png');
+    const imgW = canvas.width;
+    const imgH = canvas.height;
+
+    // A4 landscape for wide tables
+    const pdf = new jsPDF({ orientation: imgW > imgH ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const contentW = pageW - margin * 2;
+    const contentH = (imgH / imgW) * contentW;
+
+    if (contentH <= pageH - margin * 2) {
+      pdf.addImage(imgData, 'PNG', margin, margin, contentW, contentH);
+    } else {
+      // Multi-page
+      let yOffset = 0;
+      const sliceH = ((pageH - margin * 2) / contentW) * imgW;
+      while (yOffset < imgH) {
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = imgW;
+        sliceCanvas.height = Math.min(sliceH, imgH - yOffset);
+        const ctx = sliceCanvas.getContext('2d');
+        ctx.drawImage(canvas, 0, yOffset, imgW, sliceCanvas.height, 0, 0, imgW, sliceCanvas.height);
+        const sliceData = sliceCanvas.toDataURL('image/png');
+        const h = (sliceCanvas.height / imgW) * contentW;
+        if (yOffset > 0) pdf.addPage();
+        pdf.addImage(sliceData, 'PNG', margin, margin, contentW, h);
+        yOffset += sliceH;
+      }
+    }
+
+    const tn = window._studentTeamNames?.[teamId]?.name || teamId || 'data';
+    pdf.save(`奶茶大亨_${tn}_數據.pdf`);
+  } catch (err) {
+    console.error('PDF generation error:', err);
+    alert('PDF 生成失敗：' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📥 下載 PDF';
+  }
 }
 </script>
 </body>

@@ -25,6 +25,11 @@
       padding: 2rem;
       transition: opacity 0.5s;
     }
+    .screen.screen-scroll {
+      justify-content: flex-start;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
     .screen.hidden { display: none; }
 
     /* ── In-Progress Screen ── */
@@ -233,20 +238,16 @@
     <div style="font-size:0.8rem; color:var(--text-dim);">所有小組面對相同的固定價格</div>
   </div>
 
+  <!-- Inline Event Display (replaces overlay) -->
+  <div id="inlineEventArea" class="hidden" style="margin-top:0.8rem; max-width:520px; width:100%;">
+  </div>
+
   <!-- Team Lights -->
   <div class="team-lights" id="teamLights"></div>
 
 </div>
 
-<!-- ══════════════════════════════════════
-     EVENT FULLSCREEN OVERLAY
-══════════════════════════════════════ -->
-<div id="eventOverlay" class="hidden">
-  <div class="event-big-icon" id="evtIcon">⚡</div>
-  <div class="event-big-title" id="evtTitle">事件卡觸發！</div>
-  <div class="event-big-desc" id="evtDesc">—</div>
-  <button class="btn btn-outline mt-3" onclick="hideEventOverlay()">繼續</button>
-</div>
+<!-- Event overlay removed — events shown inline -->
 
 <!-- ══════════════════════════════════════
      SCREEN B — Clearing (Slot Machine)
@@ -273,20 +274,28 @@
       </div>
     </div>
 
-    <div id="slotRevealBtn" class="hidden">
-      <button class="btn btn-gold btn-lg" onclick="revealLeaderboard()">📊 顯示排行榜</button>
-    </div>
+    <!-- Leaderboard auto-shown when teacher clicks 公佈結算結果 -->
   </div>
 </div>
 
 <!-- ══════════════════════════════════════
      SCREEN C — Leaderboard
 ══════════════════════════════════════ -->
-<div id="screenLeaderboard" class="screen hidden">
+<div id="screenLeaderboard" class="screen screen-scroll hidden">
   <div class="lb-title">🏆 <span style="color:var(--gold);">排行榜</span></div>
   <p id="lbRoundLabel" class="text-dim mb-2">回合 1 結算後</p>
   <div class="lb-list" id="lbList"></div>
   <p class="text-dim mt-3" style="font-size:0.8rem;">等待教師開始下一回合…</p>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN D — All Rounds Data Panel (mirrored from teacher)
+══════════════════════════════════════ -->
+<div id="screenDataPanel" class="screen hidden" style="align-items:flex-start; justify-content:flex-start; padding-top:1.5rem; overflow-y:auto;">
+  <div style="width:100%; max-width:900px; margin:0 auto;">
+    <h2 style="font-size:2rem; font-weight:900; text-align:center; margin-bottom:1rem;">📊 <span style="color:var(--gold);">回合數據總覽</span></h2>
+    <div id="displayDataContent" style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem;"></div>
+  </div>
 </div>
 
 <!-- Firebase SDKs -->
@@ -305,6 +314,16 @@ let lastStatus   = null;
 let lastEvents   = [];
 let timerInterval = null;
 let prevCapitals  = {};   // teamId → capital before this round (for delta display)
+let lastDataPanelVisible = false;
+let lastDataPanelTeam = null;
+let teamNameCache = {}; // teamId → { name, emoji }
+
+/** Get display name/emoji for a team, preferring Firestore cache over GameEngine */
+function getTeamDisplay(teamId) {
+  if (teamNameCache[teamId]) return teamNameCache[teamId];
+  const ge = GameEngine.ALL_TEAMS.find(t => t.id === teamId);
+  return ge ? { name: ge.name, emoji: ge.emoji } : { name: teamId, emoji: '🟤' };
+}
 
 // ── Connect ──
 async function connectDisplay() {
@@ -315,8 +334,9 @@ async function connectDisplay() {
   if (!snap.exists) { return showError('找不到該課堂代碼'); }
 
   sessionId = code;
-  numberOfGroups = snap.data().number_of_groups || 5;
-  gameMode = snap.data().game_mode || 1;
+  const sessionData = snap.data();
+  numberOfGroups = sessionData.number_of_groups || 0;
+  gameMode = sessionData.game_mode || 1;
   document.getElementById('progCode').textContent = '課堂: ' + code;
   document.getElementById('joinScreen').style.display = 'none';
 
@@ -324,7 +344,7 @@ async function connectDisplay() {
   if (gameMode === 1) {
     document.getElementById('demandSchedule').classList.add('hidden');
     document.getElementById('fixedPriceSchedule').classList.remove('hidden');
-    const fp = snap.data().fixed_market_price || 20;
+    const fp = sessionData.fixed_market_price || 20;
     document.getElementById('displayFixedPrice').textContent = '$' + fp;
   } else {
     document.getElementById('demandSchedule').classList.remove('hidden');
@@ -342,13 +362,30 @@ async function connectDisplay() {
     ).join('');
   }
 
-  // Snapshot current capitals for delta
+  // Snapshot current capitals for delta and populate team name cache
   const teamsSnap = await db.collection('game_sessions').doc(code).collection('teams').get();
-  teamsSnap.forEach(doc => { prevCapitals[doc.id] = doc.data().total_capital || 200; });
+  teamsSnap.forEach(doc => {
+    const t = doc.data();
+    prevCapitals[doc.id] = t.total_capital || 200;
+    teamNameCache[doc.id] = { name: t.name || t.custom_name || doc.id, emoji: t.emoji || '🟤' };
+  });
 
   renderTeamLights();
   subscribeSession();
   subscribeDecisions();
+
+  // Live-listen for new teams joining (updates team lights + cache)
+  db.collection('game_sessions').doc(code).collection('teams').onSnapshot(snap => {
+    snap.forEach(doc => {
+      const t = doc.data();
+      teamNameCache[doc.id] = { name: t.name || t.custom_name || doc.id, emoji: t.emoji || '🟤' };
+      prevCapitals[doc.id] = t.total_capital || 200;
+    });
+    if (snap.size > 0 && snap.size !== numberOfGroups) {
+      numberOfGroups = snap.size;
+      renderTeamLights();
+    }
+  });
 }
 
 function showError(msg) {
@@ -363,6 +400,7 @@ function subscribeSession() {
     if (!snap.exists) return;
     const s = snap.data();
     currentRound = s.current_round || 1;
+    if (s.number_of_groups) numberOfGroups = s.number_of_groups;
 
     document.getElementById('progRoundLabel').textContent = `回合 ${currentRound} / ${GameEngine.MAX_ROUNDS}`;
 
@@ -378,6 +416,26 @@ function subscribeSession() {
       showEventOverlay(newest);
     }
     lastEvents = newEvents;
+    // Always update inline events
+    updateInlineEvents();
+
+    // Data Panel: teacher-controlled data view
+    if (s.data_panel_visible && s.data_panel_team) {
+      // Only reload if team selection actually changed
+      if (s.data_panel_team !== lastDataPanelTeam || !lastDataPanelVisible) {
+        loadAndShowDataPanel(s.data_panel_team);
+      }
+      return; // Data panel takes priority
+    } else if (lastDataPanelVisible && !s.data_panel_visible) {
+      // Teacher closed the data panel, return to appropriate screen
+      lastDataPanelVisible = false;
+      if (s.status === 'results') {
+        revealLeaderboard();
+      } else {
+        showScreen('screenProgress');
+      }
+    }
+    lastDataPanelVisible = s.data_panel_visible || false;
 
     // Status transitions
     if (s.status !== lastStatus) {
@@ -421,13 +479,13 @@ function handleStatusChange(session) {
       document.getElementById('slotSupply').textContent = '?';
       document.getElementById('slotPrice').textContent  = '?';
       document.getElementById('slotStatusBadge').innerHTML = '';
-      document.getElementById('slotRevealBtn').classList.add('hidden');
       // Animate after short delay
       setTimeout(() => runSlotAnimation(session), 1200);
       break;
 
     case 'results':
-      // Slot should already be shown; reveal button appears
+      // Auto-show leaderboard when teacher publishes results
+      revealLeaderboard();
       break;
   }
 }
@@ -453,9 +511,8 @@ async function runSlotAnimation(session) {
   const badge = document.getElementById('slotStatusBadge');
   badge.innerHTML = `<span class="market-status-badge ${getStatusClass(marketDesc)}">${marketDesc}</span>`;
 
-  // Show leaderboard button
+  // Auto-show leaderboard after slot animation (wait for teacher to click 公佈結算結果)
   await sleep(800);
-  document.getElementById('slotRevealBtn').classList.remove('hidden');
 }
 
 function spinSlot(id, finalValue, duration) {
@@ -583,13 +640,14 @@ function resetTimer() {
 function renderTeamLights() {
   const teams = GameEngine.getTeams(numberOfGroups);
   const container = document.getElementById('teamLights');
-  container.innerHTML = teams.map(t =>
-    `<div class="team-light" id="light_${t.id}">
-      <div class="tl-emoji">${t.emoji}</div>
-      <div class="tl-name">${t.name}</div>
+  container.innerHTML = teams.map(t => {
+    const td = getTeamDisplay(t.id);
+    return `<div class="team-light" id="light_${t.id}">
+      <div class="tl-emoji">${td.emoji}</div>
+      <div class="tl-name">${td.name}</div>
       <div class="tl-badge"><span class="badge badge-waiting" id="lightBadge_${t.id}">⏳ 思考中</span></div>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 }
 
 function updateTeamLights(submittedSet) {
@@ -610,24 +668,283 @@ function updateTeamLights(submittedSet) {
   }
 }
 
-// ── Event Overlay ──
+// ── Inline Event Display (no overlay) ──
 function showEventOverlay(evt) {
-  document.getElementById('evtIcon').textContent  = evt.icon  || '⚡';
-  document.getElementById('evtTitle').textContent = evt.name  || '事件卡！';
-  document.getElementById('evtDesc').textContent  = evt.desc  || '';
-  document.getElementById('eventOverlay').classList.remove('hidden');
-
-  // Auto-dismiss after 5 seconds
-  setTimeout(hideEventOverlay, 5000);
+  // Show events inline below price, no overlay
+  updateInlineEvents();
 }
 
-function hideEventOverlay() {
-  document.getElementById('eventOverlay').classList.add('hidden');
+function updateInlineEvents() {
+  const area = document.getElementById('inlineEventArea');
+  if (!area) return;
+  if (!lastEvents || lastEvents.length === 0) {
+    area.classList.add('hidden');
+    return;
+  }
+  area.classList.remove('hidden');
+  area.innerHTML = lastEvents.map(evt => {
+    const displayName = evt.name.replace(/\s*\(陷阱卡\)/, '');
+    return `<div style="background:rgba(231,76,60,0.12); border:1.5px solid rgba(231,76,60,0.4); border-radius:var(--radius-sm); padding:0.6rem 1rem; margin-bottom:0.4rem; display:flex; align-items:center; gap:0.6rem; font-size:1.1rem;">
+      <span style="font-size:1.6rem;">${evt.icon || '⚡'}</span>
+      <span><strong style="color:var(--red);">${displayName}</strong>　${evt.desc}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Data Panel (mirrored from teacher) ──
+let _dataPanelToken = 0;
+async function loadAndShowDataPanel(teamId) {
+  lastDataPanelVisible = true;
+  lastDataPanelTeam = teamId;
+  const myToken = ++_dataPanelToken;
+
+  const content = document.getElementById('displayDataContent');
+
+  try {
+    // Load all round_results (no composite index needed)
+    const snap = await db.collection('game_sessions').doc(sessionId)
+      .collection('round_results').get();
+
+    // Build cache for all teams
+    const allCache = {};
+    snap.forEach(doc => {
+      const r = doc.data();
+      if (!allCache[r.team_id]) allCache[r.team_id] = [];
+      allCache[r.team_id].push(r);
+    });
+    for (const tid in allCache) {
+      allCache[tid].sort((a, b) => (a.round_number || 0) - (b.round_number || 0));
+    }
+
+    // Bail out if a newer call has already started
+    if (myToken !== _dataPanelToken) return;
+
+    if (teamId === 'overall') {
+      renderDisplayOverallSummary(content, allCache);
+      showScreen('screenDataPanel');
+      return;
+    }
+
+    const team = getTeamDisplay(teamId);
+    const rounds = allCache[teamId] || [];
+
+    if (!team || rounds.length === 0) {
+      content.innerHTML = `<p class="text-dim text-center" style="padding:2rem; font-size:1.2rem;">此組別尚無回合數據</p>`;
+      showScreen('screenDataPanel');
+      return;
+    }
+
+  let cumCapital = 200;
+  let optimalCount = 0;
+  const roundRows = rounds.map(r => {
+    const fc = r.effective_fc !== undefined ? r.effective_fc : GameEngine.DEFAULT_FC;
+    const vc = r.vc !== undefined ? r.vc : (r.tc - fc);
+    cumCapital += r.profit;
+    const { optimalQ } = GameEngine.getOptimalQ(r.market_price, fc, r.q, vc);
+    const isOptimal = (r.q === optimalQ);
+    if (isOptimal) optimalCount++;
+    return {
+      round: r.round_number, price: r.market_price, q: r.q,
+      fc, vc, tc: r.tc, tr: r.tr, profit: r.profit, mc: r.mc,
+      overproduction: r.overproduction, belowShutdown: r.below_shutdown,
+      cumCapital, optimalQ, isOptimal
+    };
+  });
+
+  const score = Math.round((optimalCount / roundRows.length) * 100);
+  const scoreColor = score >= 80 ? '#4ecca3' : score >= 50 ? '#f5c518' : '#e74c3c';
+  const scoreLabel = score >= 80 ? '🔥 營商之鬼' : score >= 50 ? '📈 穩步上揚' : '⚠️ 仍需努力';
+
+  let html = `
+    <div style="display:flex; align-items:center; justify-content:center; gap:1.5rem; flex-wrap:wrap; margin-bottom:1rem;">
+      <div style="text-align:center;">
+        <div style="font-size:2rem; font-weight:900;">${team.emoji} ${team.name}</div>
+        <div style="margin-top:0.3rem;">
+          <span class="text-dim" style="font-size:1rem;">累積資金：</span>
+          <span style="font-size:1.5rem; font-weight:900; color:var(--gold);">$${roundRows[roundRows.length-1].cumCapital}</span>
+        </div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3); border:3px solid ${scoreColor}; border-radius:var(--radius); padding:0.8rem 1.5rem; text-align:center; min-width:180px; box-shadow:0 0 20px ${scoreColor}44;">
+        <div style="font-size:0.78rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em;">營商之鬼指數</div>
+        <div style="font-size:2.8rem; font-weight:900; color:${scoreColor}; line-height:1.1;">${score}%</div>
+        <div style="font-size:0.9rem; font-weight:700; color:${scoreColor};">${scoreLabel}</div>
+        <div style="font-size:0.75rem; color:var(--text-dim); margin-top:0.15rem;">利潤極大化達標 ${optimalCount}/${roundRows.length} 回合</div>
+      </div>
+    </div>
+    <table class="data-table" style="width:100%; font-size:1rem;">
+      <thead>
+        <tr>
+          <th>回合</th><th>市價</th><th>產量Q</th><th>最佳Q*</th><th>租金FC</th><th>工資VC</th>
+          <th>總成本TC</th><th>營業額TR</th><th>MC</th><th>利潤</th><th>累積資金</th><th>備註</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+  for (const row of roundRows) {
+    const profitColor = row.profit >= 0 ? 'var(--green)' : 'var(--red)';
+    const profitSign = row.profit >= 0 ? '+' : '';
+    const mcText = row.mc !== null && row.mc !== undefined ? '$' + row.mc : '—';
+    let notes = [];
+    if (row.isOptimal) {
+      notes.push('<span style="color:#4ecca3;">✅ 利潤極大化</span>');
+    } else if (row.q > row.optimalQ) {
+      notes.push('<span style="color:#e74c3c;">🔴 過度生產</span>');
+      notes.push(`<span style="color:var(--text-dim);font-size:0.8rem;">應減產至 Q=${row.optimalQ}</span>`);
+    } else if (row.q < row.optimalQ && row.q > 0) {
+      notes.push('<span style="color:#53a8f5;">🔵 產量不足</span>');
+      notes.push(`<span style="color:var(--text-dim);font-size:0.8rem;">可增產至 Q=${row.optimalQ}</span>`);
+    } else if (row.q === 0 && row.optimalQ > 0) {
+      notes.push('<span style="color:#ff8c42;">⚪ 未生產</span>');
+      notes.push(`<span style="color:var(--text-dim);font-size:0.8rem;">最佳 Q=${row.optimalQ}</span>`);
+    } else if (row.q === 0 && row.optimalQ === 0) {
+      notes.push('<span style="color:#4ecca3;">✅ 正確停產</span>');
+    }
+    if (row.belowShutdown) notes.push('<span style="color:#e74c3c;">💀 跌穿停產點</span>');
+    const optQStyle = row.isOptimal ? 'color:#4ecca3;font-weight:900;' : 'color:var(--text-dim);';
+    html += `
+        <tr>
+          <td style="text-align:center; font-weight:700; font-size:1.1rem;">${row.round}</td>
+          <td style="text-align:center; color:var(--gold); font-weight:700;">$${row.price}</td>
+          <td style="text-align:center; font-weight:700;">${row.q}</td>
+          <td style="text-align:center; ${optQStyle}">${row.optimalQ}</td>
+          <td style="text-align:center;">$${row.fc}</td>
+          <td style="text-align:center;">$${row.vc}</td>
+          <td style="text-align:center;">$${row.tc}</td>
+          <td style="text-align:center; color:var(--blue);">$${row.tr}</td>
+          <td style="text-align:center;">${mcText}</td>
+          <td style="text-align:center; font-weight:700; color:${profitColor};">${profitSign}$${row.profit}</td>
+          <td style="text-align:center; font-weight:700; color:var(--gold);">$${row.cumCapital}</td>
+          <td style="font-size:0.85rem; line-height:1.4;">${notes.join('<br>')}</td>
+        </tr>`;
+  }
+
+  html += `</tbody></table>`;
+
+  // Cost structure
+  html += `
+    <div style="margin-top:1.2rem; padding:0.8rem 1rem; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:var(--radius-sm);">
+      <div style="font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">📋 成本結構參考表</div>
+      <table class="data-table" style="width:100%; font-size:0.9rem;">
+        <thead>
+          <tr><th>Q</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr>
+        </thead>
+        <tbody>
+          <tr><td style="font-weight:600;">VC</td>${GameEngine.Q_TABLE.map(r => `<td style="text-align:center;">$${r.vc}</td>`).join('')}</tr>
+          <tr><td style="font-weight:600;">MC</td>${GameEngine.Q_TABLE.map(r => `<td style="text-align:center;">${r.mc !== null ? '$'+r.mc : '—'}</td>`).join('')}</tr>
+        </tbody>
+      </table>
+    </div>`;
+
+  content.innerHTML = html;
+  showScreen('screenDataPanel');
+
+  } catch (err) {
+    console.error('loadAndShowDataPanel error:', err);
+    content.innerHTML = `<p style="color:var(--red); padding:1rem; font-size:1.2rem;">載入數據失敗：${err.message}</p>`;
+    showScreen('screenDataPanel');
+  }
+}
+
+function renderDisplayOverallSummary(content, allCache) {
+  const teams = GameEngine.getTeams(numberOfGroups);
+  if (Object.keys(allCache).length === 0) {
+    content.innerHTML = `<p class="text-dim text-center" style="padding:2rem; font-size:1.4rem;">尚無回合數據</p>`;
+    return;
+  }
+  const allRoundNums = new Set();
+  for (const tid in allCache) {
+    allCache[tid].forEach(r => allRoundNums.add(r.round_number));
+  }
+  const rounds = [...allRoundNums].sort((a, b) => a - b);
+
+  let html = `<div style="font-size:1.6rem; font-weight:900; text-align:center; margin-bottom:1rem;">📋 所有小組各回合表現一覽</div>`;
+
+  for (const roundNum of rounds) {
+    html += `<div style="margin-bottom:1.4rem;">
+      <div style="font-weight:700; font-size:1.1rem; margin-bottom:0.5rem; color:var(--gold);">第 ${roundNum} 回合</div>
+      <table class="data-table" style="width:100%; font-size:0.95rem;">
+        <thead><tr>
+          <th>小組</th><th>市價</th><th>Q</th><th>Q*</th>
+          <th>FC</th><th>VC</th><th>TC</th><th>TR</th><th>MC</th>
+          <th>利潤</th><th>備註</th>
+        </tr></thead><tbody>`;
+    for (const t of teams) {
+      const td = getTeamDisplay(t.id);
+      const rData = (allCache[t.id] || []).find(r => r.round_number === roundNum);
+      if (!rData) {
+        html += `<tr><td>${td.emoji} ${td.name}</td><td colspan="10" style="text-align:center; color:var(--text-dim);">—</td></tr>`;
+        continue;
+      }
+      const fc = rData.effective_fc !== undefined ? rData.effective_fc : GameEngine.DEFAULT_FC;
+      const vc = rData.vc !== undefined ? rData.vc : (rData.tc - fc);
+      const { optimalQ } = GameEngine.getOptimalQ(rData.market_price, fc, rData.q, vc);
+      const isOptimal = (rData.q === optimalQ);
+      const profitColor = rData.profit >= 0 ? 'var(--green)' : 'var(--red)';
+      const profitSign = rData.profit >= 0 ? '+' : '';
+      const mcText = rData.mc !== null && rData.mc !== undefined ? '$' + rData.mc : '—';
+      let notes = [];
+      if (isOptimal) notes.push('<span style="color:#4ecca3;">✅</span>');
+      else if (rData.q > optimalQ) notes.push('<span style="color:#e74c3c;">🔴</span>');
+      else if (rData.q < optimalQ && rData.q > 0) notes.push('<span style="color:#53a8f5;">🔵</span>');
+      else if (rData.q === 0 && optimalQ > 0) notes.push('<span style="color:#ff8c42;">⚪</span>');
+      else if (rData.q === 0 && optimalQ === 0) notes.push('<span style="color:#4ecca3;">✅</span>');
+      if (rData.below_shutdown) notes.push('<span style="color:#e74c3c;">💀</span>');
+      const optQStyle = isOptimal ? 'color:#4ecca3;font-weight:900;' : 'color:var(--text-dim);';
+      html += `<tr>
+        <td style="font-weight:700;">${td.emoji} ${td.name}</td>
+        <td style="text-align:center; color:var(--gold);">$${rData.market_price}</td>
+        <td style="text-align:center; font-weight:700;">${rData.q}</td>
+        <td style="text-align:center; ${optQStyle}">${optimalQ}</td>
+        <td style="text-align:center;">$${fc}</td>
+        <td style="text-align:center;">$${vc}</td>
+        <td style="text-align:center;">$${rData.tc}</td>
+        <td style="text-align:center; color:var(--blue);">$${rData.tr}</td>
+        <td style="text-align:center;">${mcText}</td>
+        <td style="text-align:center; font-weight:700; color:${profitColor};">${profitSign}$${rData.profit}</td>
+        <td style="font-size:0.85rem;">${notes.join(' ')}</td>
+      </tr>`;
+    }
+    html += `</tbody></table></div>`;
+  }
+
+  // Ranking summary
+  html += `<div style="margin-top:1rem; padding:1rem; background:rgba(245,197,24,0.06); border:1px solid rgba(245,197,24,0.2); border-radius:var(--radius-sm);">
+    <div style="font-weight:700; font-size:1.1rem; margin-bottom:0.5rem; text-align:center;">🏆 營商之鬼指數排行</div>
+    <table class="data-table" style="width:100%; font-size:1rem;">
+      <thead><tr><th>排名</th><th>小組</th><th>達標回合</th><th>指數</th></tr></thead>
+      <tbody>`;
+  const rankings = teams.map(t => {
+    const td = getTeamDisplay(t.id);
+    const tRounds = allCache[t.id] || [];
+    let optimal = 0;
+    tRounds.forEach(r => {
+      const fc = r.effective_fc !== undefined ? r.effective_fc : GameEngine.DEFAULT_FC;
+      const vc = r.vc !== undefined ? r.vc : (r.tc - fc);
+      const { optimalQ } = GameEngine.getOptimalQ(r.market_price, fc, r.q, vc);
+      if (r.q === optimalQ) optimal++;
+    });
+    const score = tRounds.length > 0 ? Math.round((optimal / tRounds.length) * 100) : 0;
+    return { ...td, optimal, total: tRounds.length, score };
+  }).sort((a, b) => b.score - a.score);
+
+  const medals = ['🥇', '🥈', '🥉'];
+  rankings.forEach((r, i) => {
+    const scoreColor = r.score >= 80 ? '#4ecca3' : r.score >= 50 ? '#f5c518' : '#e74c3c';
+    html += `<tr>
+      <td style="text-align:center; font-weight:700; font-size:1.2rem;">${medals[i] || (i + 1)}</td>
+      <td style="font-weight:700; font-size:1.05rem;">${r.emoji} ${r.name}</td>
+      <td style="text-align:center;">${r.optimal}/${r.total}</td>
+      <td style="text-align:center; font-weight:900; font-size:1.1rem; color:${scoreColor};">${r.score}%</td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  content.innerHTML = html;
 }
 
 // ── Screen Switcher ──
 function showScreen(id) {
-  ['screenProgress', 'screenClearing', 'screenLeaderboard'].forEach(s => {
+  ['screenProgress', 'screenClearing', 'screenLeaderboard', 'screenDataPanel'].forEach(s => {
     document.getElementById(s).classList.add('hidden');
   });
   document.getElementById(id).classList.remove('hidden');
