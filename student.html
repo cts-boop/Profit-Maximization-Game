@@ -438,10 +438,20 @@
       </div>
     </div>
 
-    <!-- Game Over footer (last round only) -->
-    <div id="reportGameOver" class="hidden" style="margin-top:1.2rem; text-align:center; border-top:1px solid var(--border); padding-top:1rem;">
-      <p style="font-size:1rem; font-weight:700; color:var(--green); margin-bottom:0.6rem;">🏁 遊戲結束！</p>
-      <button class="btn btn-gold" onclick="loadStudentDataReview()">📊 查看完整數據回顧</button>
+    <!-- Navigation Button (always visible) -->
+    <div style="margin-top:1rem; padding-top:0.8rem; border-top:1px solid var(--border); display:flex; gap:0.6rem; justify-content:center; flex-wrap:wrap;">
+      <button class="btn" onclick="navigateToCurrentPhase()" style="background:rgba(255,255,255,0.08); border:1px solid var(--border); color:var(--text); font-size:0.9rem;">
+        ▶ 前往目前頁面
+      </button>
+      <!-- Game Over: View Data Button -->
+      <div id="gameOverActions" class="hidden" style="display:inline-block;">
+        <button class="btn btn-primary" onclick="loadStudentDataReview()" style="background:rgba(83,168,245,0.15); border:1px solid var(--blue); color:var(--blue);">
+          📊 查看完整數據回顧
+        </button>
+      </div>
+    </div>
+    <div id="gameOverMsg" class="hidden" style="text-align:center; margin-top:0.4rem;">
+      <p style="font-weight:700; color:var(--green); font-size:0.9rem;">🏁 遊戲結束！</p>
     </div>
 
   </div>
@@ -455,7 +465,10 @@
     <div class="card animate-slide-up">
       <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
         <span>📊 回合數據總覽</span>
-        <button id="btnDownloadPDF" class="btn btn-sm" style="background:rgba(83,168,245,0.15); border:1px solid var(--blue); color:var(--blue);">📥 下載 PDF</button>
+        <div style="display:flex; gap:0.4rem;">
+          <button id="btnDownloadPDF" class="btn btn-sm" style="background:rgba(83,168,245,0.15); border:1px solid var(--blue); color:var(--blue);">📥 下載 PDF</button>
+          <button class="btn btn-sm" onclick="backToReport()" style="background:rgba(245,197,24,0.15); border:1px solid var(--gold); color:var(--gold);">← 返回損益表</button>
+        </div>
       </div>
       <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1rem;" id="studentDataMenu"></div>
       <div id="studentDataContent" style="overflow-x:auto;"></div>
@@ -473,6 +486,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
 
 <script>
+// ── Helpers ──
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Failed to load: ' + src));
+    document.head.appendChild(s);
+  });
+}
+
 // ── State ──
 let sessionId        = null;
 let teamId           = null;
@@ -592,7 +616,19 @@ function subscribeSession() {
     .onSnapshot(snap => {
       if (!snap.exists) return;
       const session = snap.data();
-      currentRound  = session.current_round || 1;
+
+      // If student is viewing data review, don't let session changes disrupt the view
+      if (!document.getElementById('phaseDataReview').classList.contains('hidden')) {
+        return;
+      }
+
+      // Detect round advancement — reset per-round flags so new round starts fresh
+      const newRound = session.current_round || 1;
+      if (newRound > currentRound) {
+        submitted = false;
+        roundPhaseStarted = false;
+      }
+      currentRound  = newRound;
       activeEvents  = (session.active_events || []);
       gameMode      = session.game_mode || 1;
       if (session.number_of_groups) numberOfGroups = session.number_of_groups;
@@ -1033,6 +1069,12 @@ async function loadAndShowReport() {
   const aiComment = document.getElementById('aiComment');
   const aiText = document.getElementById('aiCommentText');
   if (aiComment && aiText) {
+    // Determine if student could have produced more (MC at chosen Q < price, and Q < 8)
+    const mc = r.mc !== null && r.mc !== undefined ? r.mc : null;
+    const underproduction = (r.tp > 0 && !r.overproduction && mc !== null && mc < r.market_price && r.tp < 8);
+    // Also catch Q=0 when optimal Q > 0
+    const didNotProduce = (r.tp === 0 && !r.below_shutdown);
+
     let comments = [];
     if (r.overproduction) {
       comments.push('⚠️ 你的邊際成本 (MC) 已超過售價，代表最後幾件產品的生產成本高於收入，屬於「過度生產」。下次試試減少 Q，直到 MC ≤ 售價。');
@@ -1040,13 +1082,16 @@ async function loadAndShowReport() {
     if (r.below_shutdown) {
       comments.push('💀 營業額甚至無法覆蓋工資支出 (TVC)！此時停產 (Q=0) 只需承擔租金損失，比繼續生產虧更少。');
     }
-    if (r.profit > 0 && !r.overproduction) {
-      comments.push('👍 本期錄得盈利，且沒有過度生產，決策表現良好！');
+    if (underproduction) {
+      comments.push(`📈 你的邊際成本 MC=$${mc} 仍低於售價 $${r.market_price}，代表再多生產一件仍能賺取額外利潤，屬於「產量不足」。下次試試增加 Q，直到 MC ≈ 售價。`);
     }
-    if (r.profit <= 0 && !r.overproduction && !r.below_shutdown && r.tp > 0) {
-      comments.push('📉 雖然生產決策正確 (MC ≤ 售價)，但由於固定成本或市場價格影響，本期仍錄得虧損。短期內只要 TR ≥ TVC，繼續營運是合理的。');
+    if (!r.overproduction && !underproduction && !r.below_shutdown && r.tp > 0) {
+      comments.push('👍 本期達到利潤極大化！產量恰好令 MC ≈ 售價，決策表現良好！');
     }
-    if (r.tp === 0) {
+    if (r.profit <= 0 && !r.overproduction && !underproduction && !r.below_shutdown && r.tp > 0) {
+      comments.push('📉 雖然生產決策正確 (MC ≈ 售價)，但由於固定成本或市場價格影響，本期仍錄得虧損。短期內只要 TR ≥ TVC，繼續營運是合理的。');
+    }
+    if (didNotProduce) {
       comments.push('🏭 本期選擇停產，損失僅限於廠房租金 (FC)。停產是在 TR < TVC 時的最佳策略。');
     }
     if (comments.length > 0) {
@@ -1057,17 +1102,50 @@ async function loadAndShowReport() {
     }
   }
 
-  // Game-over footer on last round
-  const gameOverFooter = document.getElementById('reportGameOver');
-  if (gameOverFooter) {
-    if (currentRound >= GameEngine.MAX_ROUNDS) {
-      gameOverFooter.classList.remove('hidden');
-    } else {
-      gameOverFooter.classList.add('hidden');
-    }
-  }
-
   document.getElementById('reportModal').classList.remove('hidden');
+
+  // Show "View Data" + game-over message if game is over (last round)
+  const isLastRound = currentRound >= GameEngine.MAX_ROUNDS;
+  const gameOverActions = document.getElementById('gameOverActions');
+  const gameOverMsg     = document.getElementById('gameOverMsg');
+  if (gameOverActions) {
+    gameOverActions.classList.toggle('hidden', !isLastRound);
+  }
+  if (gameOverMsg) {
+    gameOverMsg.classList.toggle('hidden', !isLastRound);
+  }
+}
+
+// Navigate to the appropriate page based on current session status
+async function navigateToCurrentPhase() {
+  try {
+    const snap = await db.collection('game_sessions').doc(sessionId).get();
+    if (!snap.exists) return;
+    const session = snap.data();
+    document.getElementById('reportModal').classList.add('hidden');
+
+    if (session.status === 'in_progress') {
+      if (submitted) {
+        showPhase('waiting');
+        setWaitingMsg('✅', '生產指令已提交！', '等待其他公司提交，即將結算…');
+      } else {
+        roundPhaseStarted = true;
+        showPhase('decision');
+        startClientTimer(session.timer_end);
+      }
+    } else if (session.status === 'waiting') {
+      submitted = false;
+      roundPhaseStarted = false;
+      showPhase('waiting');
+      setWaitingMsg('⏳', '等待教師開始新一期…', '請準備好紙筆，計算生產成本');
+    } else {
+      // results / clearing — stay on report or go to waiting
+      showPhase('waiting');
+      setWaitingMsg('⏳', '正在結算，請稍候…', '即將公佈本期損益報告');
+    }
+  } catch (e) {
+    console.error('navigateToCurrentPhase error:', e);
+  }
 }
 
 
@@ -1098,6 +1176,11 @@ function subscribeRadar() {
       indicator.style.color = textColor;
       indicator.textContent = `${icon} 若維持此產量 → 預測市價 $${tier.price} (${tier.description})`;
     });
+}
+
+function backToReport() {
+  document.getElementById('phaseDataReview').classList.add('hidden');
+  document.getElementById('reportModal').classList.remove('hidden');
 }
 
 // ── Student Data Review ──
@@ -1228,12 +1311,21 @@ function renderStudentTeamData(tid) {
     const profitSign = row.profit >= 0 ? '+' : '';
     const mcText = row.mc !== null && row.mc !== undefined ? '$' + row.mc : '—';
     let notes = [];
-    if (row.isOptimal) notes.push('<span style="color:#4ecca3;">✅</span>');
-    else if (row.q > row.optimalQ) notes.push('<span style="color:#e74c3c;">🔴 過度生產</span>');
-    else if (row.q < row.optimalQ && row.q > 0) notes.push('<span style="color:#53a8f5;">🔵 產量不足</span>');
-    else if (row.q === 0 && row.optimalQ > 0) notes.push('<span style="color:#ff8c42;">⚪ 未生產</span>');
-    else if (row.q === 0 && row.optimalQ === 0) notes.push('<span style="color:#4ecca3;">✅ 停產</span>');
-    if (row.belowShutdown) notes.push('<span style="color:#e74c3c;">💀</span>');
+    if (row.isOptimal) {
+      notes.push('<span style="color:#4ecca3;">✅ 利潤極大化</span>');
+    } else if (row.q > row.optimalQ) {
+      notes.push('<span style="color:#e74c3c;">🔴 過度生產</span>');
+      notes.push(`<span style="color:var(--text-dim);font-size:0.75rem;">應減產至 Q=${row.optimalQ}</span>`);
+    } else if (row.q < row.optimalQ && row.q > 0) {
+      notes.push('<span style="color:#53a8f5;">🔵 產量不足</span>');
+      notes.push(`<span style="color:var(--text-dim);font-size:0.75rem;">可增產至 Q=${row.optimalQ}</span>`);
+    } else if (row.q === 0 && row.optimalQ > 0) {
+      notes.push('<span style="color:#ff8c42;">⚪ 未生產</span>');
+      notes.push(`<span style="color:var(--text-dim);font-size:0.75rem;">最佳 Q=${row.optimalQ}</span>`);
+    } else if (row.q === 0 && row.optimalQ === 0) {
+      notes.push('<span style="color:#4ecca3;">✅ 正確停產</span>');
+    }
+    if (row.belowShutdown) notes.push('<span style="color:#e74c3c;">💀 跌穿停產點</span>');
     const optQStyle = row.isOptimal ? 'color:#4ecca3;font-weight:900;' : 'color:var(--text-dim);';
     html += `<tr>
       <td style="text-align:center; font-weight:700;">${row.round}</td>
@@ -1251,6 +1343,15 @@ function renderStudentTeamData(tid) {
     </tr>`;
   }
   html += `</tbody></table></div>`;
+
+  // Legend for note icons
+  html += `<div style="margin-top:0.5rem; font-size:0.75rem; color:var(--text-dim); display:flex; gap:1rem; flex-wrap:wrap;">
+    <span><span style="color:#4ecca3;">✅</span> 最佳產量</span>
+    <span><span style="color:#e74c3c;">🔴</span> 過度生產（應減產至 Q*）</span>
+    <span><span style="color:#53a8f5;">🔵</span> 產量不足（應增產至 Q*）</span>
+    <span><span style="color:#ff8c42;">⚪</span> 未生產（應生產 Q*）</span>
+    <span><span style="color:#e74c3c;">💀</span> 跌穿停產點</span>
+  </div>`;
 
   // Cost reference
   html += `
@@ -1309,12 +1410,12 @@ function renderStudentOverallSummary() {
       const profitSign = rData.profit >= 0 ? '+' : '';
       const mcText = rData.mc !== null && rData.mc !== undefined ? '$' + rData.mc : '—';
       let notes = [];
-      if (isOptimal) notes.push('<span style="color:#4ecca3;">✅</span>');
-      else if (rData.q > optimalQ) notes.push('<span style="color:#e74c3c;">🔴</span>');
-      else if (rData.q < optimalQ && rData.q > 0) notes.push('<span style="color:#53a8f5;">🔵</span>');
-      else if (rData.q === 0 && optimalQ > 0) notes.push('<span style="color:#ff8c42;">⚪</span>');
-      else if (rData.q === 0 && optimalQ === 0) notes.push('<span style="color:#4ecca3;">✅</span>');
-      if (rData.below_shutdown) notes.push('<span style="color:#e74c3c;">💀</span>');
+      if (isOptimal) notes.push('<span style="color:#4ecca3;">✅ 利潤極大化</span>');
+      else if (rData.q > optimalQ) notes.push('<span style="color:#e74c3c;">🔴 過度生產</span>');
+      else if (rData.q < optimalQ && rData.q > 0) notes.push('<span style="color:#53a8f5;">🔵 產量不足</span>');
+      else if (rData.q === 0 && optimalQ > 0) notes.push('<span style="color:#ff8c42;">⚪ 未生產</span>');
+      else if (rData.q === 0 && optimalQ === 0) notes.push('<span style="color:#4ecca3;">✅ 正確停產</span>');
+      if (rData.below_shutdown) notes.push('<span style="color:#e74c3c;">💀 跌穿停產點</span>');
       const optQStyle = isOptimal ? 'color:#4ecca3;font-weight:900;' : 'color:var(--text-dim);';
       const isMe = t.id === teamId;
       const rowStyle = isMe ? 'background:rgba(245,197,24,0.08);' : '';
@@ -1334,6 +1435,15 @@ function renderStudentOverallSummary() {
     }
     html += `</tbody></table></div></div>`;
   }
+
+  // Legend for note icons
+  html += `<div style="margin-top:0.3rem; margin-bottom:0.8rem; font-size:0.75rem; color:var(--text-dim); display:flex; gap:1rem; flex-wrap:wrap;">
+    <span><span style="color:#4ecca3;">✅</span> 最佳產量</span>
+    <span><span style="color:#e74c3c;">🔴</span> 過度生產</span>
+    <span><span style="color:#53a8f5;">🔵</span> 產量不足</span>
+    <span><span style="color:#ff8c42;">⚪</span> 未生產</span>
+    <span><span style="color:#e74c3c;">💀</span> 跌穿停產點</span>
+  </div>`;
 
   // Ranking
   html += `<div style="margin-top:0.8rem; padding:0.6rem 0.8rem; background:rgba(245,197,24,0.06); border:1px solid rgba(245,197,24,0.2); border-radius:var(--radius-sm);">
@@ -1369,6 +1479,19 @@ function renderStudentOverallSummary() {
   });
   html += `</tbody></table></div>`;
 
+  // Cost reference table
+  html += `
+    <div style="margin-top:0.8rem; padding:0.6rem 0.8rem; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:var(--radius-sm);">
+      <div style="font-weight:700; font-size:0.8rem; margin-bottom:0.4rem;">📋 成本結構參考表（各產出下的可變成本）</div>
+      <table class="data-table" style="width:100%; font-size:0.78rem;">
+        <thead><tr><th>Q</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:600;">工資VC</td>${GameEngine.Q_TABLE.map(r => `<td style="text-align:center;">$${r.vc}</td>`).join('')}</tr>
+          <tr><td style="font-weight:600;">MC</td>${GameEngine.Q_TABLE.map(r => `<td style="text-align:center;">${r.mc !== null ? '$'+r.mc : '—'}</td>`).join('')}</tr>
+        </tbody>
+      </table>
+    </div>`;
+
   content.innerHTML = html;
 }
 
@@ -1384,6 +1507,27 @@ async function downloadDataPDF() {
   btn.textContent = '⏳ 生成中…';
 
   try {
+    // Ensure libraries are loaded
+    if (typeof html2canvas === 'undefined') {
+      try { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'); } catch(e) { console.warn('html2canvas CDN blocked:', e); }
+    }
+    if (!window.jspdf) {
+      try { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js'); } catch(e) { console.warn('jsPDF CDN blocked:', e); }
+    }
+    if (!window.jspdf) {
+      // Fallback: download as image
+      if (typeof html2canvas === 'undefined') { alert('PDF 及圖片生成庫均無法載入，請檢查網絡連線或防火牆設定。'); return; }
+      const el = document.getElementById('studentDataContent');
+      const canvas = await html2canvas(el, { backgroundColor: '#1a1a2e', scale: 2, useCORS: true });
+      const link = document.createElement('a');
+      const tn = window._studentTeamNames?.[teamId]?.name || teamId || 'data';
+      link.download = `奶茶大亨_${tn}_數據.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      alert('jsPDF 無法載入（可能被網絡防火牆攔截），已改為下載 PNG 圖片。');
+      return;
+    }
+
     const el = document.getElementById('studentDataContent');
     const canvas = await html2canvas(el, {
       backgroundColor: '#1a1a2e',

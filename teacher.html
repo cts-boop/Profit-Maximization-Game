@@ -233,6 +233,17 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
 
   <script>
+    // ── Helpers ──
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Failed to load: ' + src));
+        document.head.appendChild(s);
+      });
+    }
+
     // ── State ──
     let sessionId = null;
     let currentRound = 1;
@@ -266,7 +277,7 @@
     }
 
     function renderPricePresets() {
-      const prices = [10, 15, 20, 25, 30, 40, 50];
+      const prices = [15, 20, 25, 30, 35];
       document.getElementById('pricePresets').innerHTML = prices.map(p =>
         `<button class="btn btn-outline price-btn${p === fixedMarketPrice ? ' active' : ''}" onclick="setFixedPrice(${p})">$${p}</button>`
       ).join('');
@@ -523,6 +534,7 @@
     }
 
     async function showResults() {
+     try {
       gameStatus = 'results';
 
       // Gather all decisions for this round
@@ -631,6 +643,12 @@
       document.getElementById('statusBadge').textContent = '已結算';
 
       updateLeaderboard();
+     } catch (err) {
+      console.error('showResults error:', err);
+      alert('結算失敗：' + err.message + '\n\n請重試「公佈結果」按鈕。');
+      gameStatus = 'clearing';
+      document.getElementById('btnShowResults').classList.remove('hidden');
+     }
     }
 
     function renderDebriefing(result, teamsData) {
@@ -815,16 +833,26 @@
       document.getElementById('lobbyList').classList.add('hidden');
       document.getElementById('lobbyEmpty').classList.add('hidden');
       try {
-        const snap = await db.collection('game_sessions').orderBy('created_at', 'desc').get();
-        renderLobby(snap);
+        // No orderBy to avoid Firestore index requirement — sort client-side
+        const snap = await db.collection('game_sessions').get();
+        // Sort by created_at descending client-side
+        const docs = [];
+        snap.forEach(doc => docs.push(doc));
+        docs.sort((a, b) => {
+          const aT = a.data().created_at?.toMillis?.() || 0;
+          const bT = b.data().created_at?.toMillis?.() || 0;
+          return bT - aT;
+        });
+        renderLobby(docs);
       } catch (e) {
-        document.getElementById('lobbyLoading').textContent = '載入失敗，Firestore 未連線或規則未設定。';
+        console.error('loadLobby error:', e);
+        document.getElementById('lobbyLoading').textContent = '載入失敗：' + e.message + '（請檢查 Firestore 安全規則是否允許讀取）';
       }
     }
 
-    function renderLobby(snap) {
+    function renderLobby(docs) {
       document.getElementById('lobbyLoading').classList.add('hidden');
-      if (snap.empty) {
+      if (docs.length === 0) {
         document.getElementById('lobbyEmpty').classList.remove('hidden');
         return;
       }
@@ -835,7 +863,7 @@
         results:    '<span class="badge badge-submitted">已結算</span>'
       };
       let html = '';
-      snap.forEach(doc => {
+      docs.forEach(doc => {
         const s = doc.data();
         const code = doc.id;
         const round = s.current_round || 1;
@@ -1167,13 +1195,6 @@
       } else {
         renderAllRoundsTable(teamId);
       }
-
-      // Signal display
-      if (sessionId) {
-        await db.collection('game_sessions').doc(sessionId).update({
-          data_panel_team: teamId
-        });
-      }
     }
 
     function renderAllRoundsTable(teamId) {
@@ -1353,12 +1374,12 @@
           const profitSign = rData.profit >= 0 ? '+' : '';
           const mcText = rData.mc !== null && rData.mc !== undefined ? '$' + rData.mc : '—';
           let notes = [];
-          if (isOptimal) notes.push('<span style="color:#4ecca3;">✅</span>');
+          if (isOptimal) notes.push('<span style="color:#4ecca3;">✅ 利潤極大化</span>');
           else if (rData.q > optimalQ) notes.push('<span style="color:#e74c3c;">🔴 過度生產</span>');
           else if (rData.q < optimalQ && rData.q > 0) notes.push('<span style="color:#53a8f5;">🔵 產量不足</span>');
           else if (rData.q === 0 && optimalQ > 0) notes.push('<span style="color:#ff8c42;">⚪ 未生產</span>');
-          else if (rData.q === 0 && optimalQ === 0) notes.push('<span style="color:#4ecca3;">✅ 停產</span>');
-          if (rData.below_shutdown) notes.push('<span style="color:#e74c3c;">💀</span>');
+          else if (rData.q === 0 && optimalQ === 0) notes.push('<span style="color:#4ecca3;">✅ 正確停產</span>');
+          if (rData.below_shutdown) notes.push('<span style="color:#e74c3c;">💀 跌穿停產點</span>');
           const optQStyle = isOptimal ? 'color:#4ecca3;font-weight:900;' : 'color:var(--text-dim);';
           html += `<tr>
             <td style="font-weight:700;">${td.emoji} ${td.name}</td>
@@ -1409,6 +1430,19 @@
       });
       html += `</tbody></table></div>`;
 
+      // Cost reference table
+      html += `
+        <div style="margin-top:0.8rem; padding:0.8rem 1rem; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:var(--radius-sm);">
+          <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.5rem;">📋 成本結構參考表（各產出下的可變成本）</div>
+          <table class="data-table" style="width:100%; font-size:0.82rem;">
+            <thead><tr><th>Q</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr></thead>
+            <tbody>
+              <tr><td style="font-weight:600;">工資VC</td>${GameEngine.Q_TABLE.map(r => `<td style="text-align:center;">$${r.vc}</td>`).join('')}</tr>
+              <tr><td style="font-weight:600;">MC</td>${GameEngine.Q_TABLE.map(r => `<td style="text-align:center;">${r.mc !== null ? '$'+r.mc : '—'}</td>`).join('')}</tr>
+            </tbody>
+          </table>
+        </div>`;
+
       content.innerHTML = html;
     }
 
@@ -1445,6 +1479,27 @@
 
     async function downloadTeacherPDF() {
       try {
+        // Ensure libraries are loaded
+        if (typeof html2canvas === 'undefined') {
+          try { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'); } catch(e) { console.warn('html2canvas CDN blocked:', e); }
+        }
+        if (!window.jspdf) {
+          try { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js'); } catch(e) { console.warn('jsPDF CDN blocked:', e); }
+        }
+        if (!window.jspdf) {
+          // Fallback: download as image
+          if (typeof html2canvas === 'undefined') { alert('PDF 及圖片生成庫均無法載入，請檢查網絡連線或防火牆設定。'); return; }
+          const el = document.getElementById('allRoundsContent');
+          const canvas = await html2canvas(el, { backgroundColor: '#1a1a2e', scale: 2, useCORS: true });
+          const link = document.createElement('a');
+          const viewName = selectedDataTeamId === 'overall' ? '整體記錄' : (getTeamDisplay(selectedDataTeamId)?.name || selectedDataTeamId);
+          link.download = `奶茶大亨_${viewName}_數據.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          alert('jsPDF 無法載入（可能被網絡防火牆攔截），已改為下載 PNG 圖片。');
+          return;
+        }
+
         const el = document.getElementById('allRoundsContent');
         const canvas = await html2canvas(el, {
           backgroundColor: '#1a1a2e',

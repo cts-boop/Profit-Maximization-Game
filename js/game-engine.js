@@ -14,23 +14,41 @@ const GameEngine = {
   MAX_ROUNDS: 6,
   DEFAULT_TIMER_SECONDS: 120,
   MIN_GROUPS: 2,
-  MAX_GROUPS: 12,
+  MAX_GROUPS: 30,
   HEDGE_SAFE_PRICE: 15,
 
-  // ── All 12 Possible Team Slots ──
+  // ── All 30 Possible Team Slots ──
   ALL_TEAMS: [
-    { id: "teamA", name: "Group A", emoji: "🟤" },
-    { id: "teamB", name: "Group B", emoji: "⚫" },
-    { id: "teamC", name: "Group C", emoji: "🟡" },
-    { id: "teamD", name: "Group D", emoji: "🟢" },
-    { id: "teamE", name: "Group E", emoji: "🟣" },
-    { id: "teamF", name: "Group F", emoji: "🔴" },
-    { id: "teamG", name: "Group G", emoji: "🔵" },
-    { id: "teamH", name: "Group H", emoji: "🟠" },
-    { id: "teamI", name: "Group I", emoji: "⚪" },
-    { id: "teamJ", name: "Group J", emoji: "🩷" },
-    { id: "teamK", name: "Group K", emoji: "🩵" },
-    { id: "teamL", name: "Group L", emoji: "🟩" }
+    { id: "teamA",  name: "Group A",  emoji: "🟤" },
+    { id: "teamB",  name: "Group B",  emoji: "⚫" },
+    { id: "teamC",  name: "Group C",  emoji: "🟡" },
+    { id: "teamD",  name: "Group D",  emoji: "🟢" },
+    { id: "teamE",  name: "Group E",  emoji: "🟣" },
+    { id: "teamF",  name: "Group F",  emoji: "🔴" },
+    { id: "teamG",  name: "Group G",  emoji: "🔵" },
+    { id: "teamH",  name: "Group H",  emoji: "🟠" },
+    { id: "teamI",  name: "Group I",  emoji: "⚪" },
+    { id: "teamJ",  name: "Group J",  emoji: "🩷" },
+    { id: "teamK",  name: "Group K",  emoji: "🩵" },
+    { id: "teamL",  name: "Group L",  emoji: "🟩" },
+    { id: "teamM",  name: "Group M",  emoji: "🟦" },
+    { id: "teamN",  name: "Group N",  emoji: "🟧" },
+    { id: "teamO",  name: "Group O",  emoji: "🟨" },
+    { id: "teamP",  name: "Group P",  emoji: "🟥" },
+    { id: "teamQ",  name: "Group Q",  emoji: "🟪" },
+    { id: "teamR",  name: "Group R",  emoji: "🟫" },
+    { id: "teamS",  name: "Group S",  emoji: "♦️" },
+    { id: "teamT",  name: "Group T",  emoji: "♣️" },
+    { id: "teamU",  name: "Group U",  emoji: "♥️" },
+    { id: "teamV",  name: "Group V",  emoji: "♠️" },
+    { id: "teamW",  name: "Group W",  emoji: "💛" },
+    { id: "teamX",  name: "Group X",  emoji: "💚" },
+    { id: "teamY",  name: "Group Y",  emoji: "💙" },
+    { id: "teamZ",  name: "Group Z",  emoji: "💜" },
+    { id: "teamAA", name: "Group AA", emoji: "🧡" },
+    { id: "teamAB", name: "Group AB", emoji: "❤️" },
+    { id: "teamAC", name: "Group AC", emoji: "🤍" },
+    { id: "teamAD", name: "Group AD", emoji: "🖤" }
   ],
 
   /** Return first N teams from ALL_TEAMS. */
@@ -43,7 +61,7 @@ const GameEngine = {
   get TEAMS() { return this.getTeams(5); },
 
   // ── Production & Cost Data Table (Q-based) ──
-  // Since ΔQ = 1, MC = ΔTC exactly. U-shaped MC confirms LDMR.
+  // MC values: 10,5,10,15,20,25,30,35 (U-shaped, confirms LDMR)
   Q_TABLE: [
     { q: 0, fc: 20, vc: 0,   tc: 20,  mc: null },
     { q: 1, fc: 20, vc: 10,  tc: 30,  mc: 10   },
@@ -51,9 +69,9 @@ const GameEngine = {
     { q: 3, fc: 20, vc: 25,  tc: 45,  mc: 10   },
     { q: 4, fc: 20, vc: 40,  tc: 60,  mc: 15   },
     { q: 5, fc: 20, vc: 60,  tc: 80,  mc: 20   },
-    { q: 6, fc: 20, vc: 90,  tc: 110, mc: 30   },
-    { q: 7, fc: 20, vc: 130, tc: 150, mc: 40   },
-    { q: 8, fc: 20, vc: 180, tc: 200, mc: 50   }
+    { q: 6, fc: 20, vc: 85,  tc: 105, mc: 25   },
+    { q: 7, fc: 20, vc: 115, tc: 135, mc: 30   },
+    { q: 8, fc: 20, vc: 150, tc: 170, mc: 35   }
   ],
 
   // ── Dynamic Demand (v4.0) ──
@@ -217,7 +235,7 @@ const GameEngine = {
       const tc = fc + Math.max(0, vc);
       const tr = q * marketPrice;
       const profit = tr - tc;
-      if (profit > bestProfit) {
+      if (profit >= bestProfit) {
         bestProfit = profit;
         bestQ = q;
       }
